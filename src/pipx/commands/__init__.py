@@ -1,8 +1,8 @@
 from .ensure_path import ensure_pipx_paths
-from .import_export import export_spec, install_spec
 from .inject import inject
 from .install import install
 from .list_packages import list_packages
+from .pipx_spec import export_spec, install_spec
 from .reinstall import reinstall_all
 from .run import run
 from .run_pip import run_pip
