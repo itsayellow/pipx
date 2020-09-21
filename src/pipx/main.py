@@ -200,7 +200,10 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             skip=args.skip,
         )
     elif args.command == "export-spec":
-        return commands.export_spec(args.output_file, venv_container)
+        # TODO: make optional include list
+        return commands.export_spec(
+            args.output_file, venv_container, skip_list=args.skip, include_list=None
+        )
     elif args.command == "install-spec":
         return commands.install_spec(
             args.input_file, venv_container, args.python, verbose, args.force
@@ -495,6 +498,8 @@ def _add_export_spec(subparsers):
     p.add_argument(
         "output_file", help="JSON file to be exported to",
     )
+    # TODO: make optional include list
+    p.add_argument("--skip", nargs="+", default=[], help="skip these packages")
     p.add_argument("--verbose", action="store_true")
 
 

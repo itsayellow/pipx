@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Callable, Collection, Optional
+from typing import Collection, List, Optional
 
 from pipx.commands.inject import inject
 from pipx.commands.install import install
@@ -9,13 +9,6 @@ from pipx.emojies import sleep
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
-
-Pool: Optional[Callable]
-try:
-    import multiprocessing.synchronize  # noqa: F401
-    from multiprocessing import Pool
-except ImportError:
-    Pool = None
 
 # TODO: skip venvs, specify venvs
 # TODO: handle venvs with no metadata
@@ -30,7 +23,12 @@ def _get_venv_info(venv_dir: Path):
     return venv_name, venv_metadata
 
 
-def export_spec(out_filename: str, venv_container: VenvContainer) -> int:
+def export_spec(
+    out_filename: str,
+    venv_container: VenvContainer,
+    skip_list: List[str],
+    include_list: Optional[List[str]],
+) -> int:
     dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
     if not dirs:
         print(f"nothing has been installed with pipx {sleep}")
@@ -38,13 +36,10 @@ def export_spec(out_filename: str, venv_container: VenvContainer) -> int:
 
     venv_container.verify_shared_libs()
     all_venv_metadata = {}
-    if Pool:
-        with Pool() as p:
-            for (venv_name, venv_metadata) in p.map(_get_venv_info, dirs,):
-                all_venv_metadata[venv_name] = venv_metadata
-    else:
-        for (venv_name, venv_metadata) in map(_get_venv_info, dirs,):
-            all_venv_metadata[venv_name] = venv_metadata
+
+    for venv_dir in sorted(venv_container.iter_venv_dirs()):
+        (venv_name, venv_metadata) = _get_venv_info(venv_dir)
+        all_venv_metadata[venv_name] = venv_metadata
 
     with open(out_filename, "w") as pipx_export_fh:
         json.dump(
@@ -56,9 +51,6 @@ def export_spec(out_filename: str, venv_container: VenvContainer) -> int:
         )
 
     return 0
-
-
-# TODO: handle venv directories that collide (already exist and will be installed)
 
 
 # Based on reinstall-all without the uninstall
