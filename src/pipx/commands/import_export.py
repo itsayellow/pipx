@@ -30,7 +30,7 @@ def _get_venv_info(venv_dir: Path):
     return venv_name, venv_metadata
 
 
-def export_json(out_filename: str, venv_container: VenvContainer) -> int:
+def export_spec(out_filename: str, venv_container: VenvContainer) -> int:
     dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
     if not dirs:
         print(f"nothing has been installed with pipx {sleep}")
@@ -115,7 +115,7 @@ def _install_from_metadata(
 
 
 # TODO: how to handle json python mismatch with python argument
-def install_json(
+def install_spec(
     in_filename: str,
     venv_container: VenvContainer,
     python: str,

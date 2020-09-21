@@ -1,5 +1,5 @@
 from .ensure_path import ensure_pipx_paths
-from .import_export import export_json, install_json
+from .import_export import export_spec, install_spec
 from .inject import inject
 from .install import install
 from .list_packages import list_packages
@@ -20,7 +20,7 @@ __all__ = [
     "reinstall_all",
     "list_packages",
     "run_pip",
-    "export_json",
-    "install_json",
+    "export_spec",
+    "install_spec",
     "ensure_pipx_paths",
 ]

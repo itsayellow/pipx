@@ -199,10 +199,10 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             verbose,
             skip=args.skip,
         )
-    elif args.command == "export-json":
-        return commands.export_json(args.output_file, venv_container)
-    elif args.command == "install-json":
-        return commands.install_json(
+    elif args.command == "export-spec":
+        return commands.export_spec(args.output_file, venv_container)
+    elif args.command == "install-spec":
+        return commands.install_spec(
             args.input_file, venv_container, args.python, verbose, args.force
         )
     elif args.command == "runpip":
@@ -486,9 +486,9 @@ def _add_runpip(subparsers, autocomplete_list_of_installed_packages):
     p.add_argument("--verbose", action="store_true")
 
 
-def _add_export_json(subparsers):
+def _add_export_spec(subparsers):
     p = subparsers.add_parser(
-        "export-json",
+        "export-spec",
         help="Export to a json file the configuration of all pipx-managed Virtual Environments",
         description="Export to a json file the configuration of all pipx-managed Virtual Environments",
     )
@@ -498,9 +498,9 @@ def _add_export_json(subparsers):
     p.add_argument("--verbose", action="store_true")
 
 
-def _add_install_json(subparsers):
+def _add_install_spec(subparsers):
     p = subparsers.add_parser(
-        "install-json",
+        "install-spec",
         help="Install Virtual Environments and their packages specified by a pipx json file.",
         description="Install Virtual Environments and their packages specified by a pipx json file.",
     )
@@ -571,8 +571,8 @@ def get_command_parser():
     _add_list(subparsers)
     _add_run(subparsers)
     _add_runpip(subparsers, autocomplete_list_of_installed_packages)
-    _add_export_json(subparsers)
-    _add_install_json(subparsers)
+    _add_export_spec(subparsers)
+    _add_install_spec(subparsers)
     _add_ensurepath(subparsers)
 
     parser.add_argument("--version", action="store_true", help="Print version and exit")
