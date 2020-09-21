@@ -1,4 +1,5 @@
 from .ensure_path import ensure_pipx_paths
+from .import_export import export_json, install_json
 from .inject import inject
 from .install import install
 from .list_packages import list_packages
@@ -7,7 +8,6 @@ from .run import run
 from .run_pip import run_pip
 from .uninstall import uninstall, uninstall_all
 from .upgrade import upgrade, upgrade_all
-
 
 __all__ = [
     "upgrade",
@@ -20,5 +20,7 @@ __all__ = [
     "reinstall_all",
     "list_packages",
     "run_pip",
+    "export_json",
+    "install_json",
     "ensure_pipx_paths",
 ]

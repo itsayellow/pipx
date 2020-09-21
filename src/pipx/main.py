@@ -199,6 +199,12 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             verbose,
             skip=args.skip,
         )
+    elif args.command == "export-json":
+        return commands.export_json(args.output_file, venv_container)
+    elif args.command == "install-json":
+        return commands.install_json(
+            args.input_file, venv_container, args.python, verbose, args.force
+        )
     elif args.command == "runpip":
         if not venv_dir:
             raise PipxError("developer error: venv dir is not defined")
@@ -480,6 +486,44 @@ def _add_runpip(subparsers, autocomplete_list_of_installed_packages):
     p.add_argument("--verbose", action="store_true")
 
 
+def _add_export_json(subparsers):
+    p = subparsers.add_parser(
+        "export-json",
+        help="Export to a json file the configuration of all pipx-managed Virtual Environments",
+        description="Export to a json file the configuration of all pipx-managed Virtual Environments",
+    )
+    p.add_argument(
+        "output_file", help="JSON file to be exported to",
+    )
+    p.add_argument("--verbose", action="store_true")
+
+
+def _add_install_json(subparsers):
+    p = subparsers.add_parser(
+        "install-json",
+        help="Install Virtual Environments and their packages specified by a pipx json file.",
+        description="Install Virtual Environments and their packages specified by a pipx json file.",
+    )
+    p.add_argument(
+        "input_file", help="JSON file containing installation specification.",
+    )
+    p.add_argument(
+        "--python",
+        default=DEFAULT_PYTHON,
+        help=(
+            "The Python executable used to recreate the Virtual Environment "
+            "and run the associated app/apps. Must be v3.5+."
+        ),
+    )
+    p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Modify existing virtual environment and files in PIPX_BIN_DIR",
+    )
+    p.add_argument("--verbose", action="store_true")
+
+
 def _add_ensurepath(subparsers):
     p = subparsers.add_parser(
         "ensurepath",
@@ -527,6 +571,8 @@ def get_command_parser():
     _add_list(subparsers)
     _add_run(subparsers)
     _add_runpip(subparsers, autocomplete_list_of_installed_packages)
+    _add_export_json(subparsers)
+    _add_install_json(subparsers)
     _add_ensurepath(subparsers)
 
     parser.add_argument("--version", action="store_true", help="Print version and exit")
