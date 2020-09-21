@@ -333,6 +333,10 @@ class Venv:
         )
         return cmd_run.stdout.strip()
 
+    def pip_freeze(self) -> str:
+        cmd_run = run_subprocess([str(self.python_path), "-m", "pip", "freeze"])
+        return cmd_run.stdout.strip().split("\n")
+
     def list_installed_packages(self) -> Set[str]:
         cmd_run = run_subprocess(
             [str(self.python_path), "-m", "pip", "list", "--format=json"]

@@ -196,19 +196,21 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             venv_container,
             constants.LOCAL_BIN_DIR,
             args.python,
-            verbose,
             skip=args.skip,
+            verbose=verbose,
         )
     elif args.command == "export-spec":
         return commands.export_spec(
             args.output_file,
             venv_container,
             skip_list=args.skip,
-            include_list=args.venv,
+            include_list=args.venv or None,
+            freeze=args.freeze,
+            verbose=verbose,
         )
     elif args.command == "install-spec":
         return commands.install_spec(
-            args.input_file, venv_container, args.python, verbose, args.force
+            args.input_file, venv_container, args.python, args.force, verbose
         )
     elif args.command == "runpip":
         if not venv_dir:
@@ -497,6 +499,12 @@ def _add_export_spec(subparsers):
         help="Export to a json file the configuration of all pipx-managed Virtual Environments",
         description="Export to a json file the configuration of all pipx-managed Virtual Environments",
     )
+    p.add_argument(
+        "--freeze",
+        action="store_true",
+        help="Record the versions of all packages in each venv: installed, "
+        "injected, and all dependencies.",
+    )
     p.add_argument("--skip", nargs="+", default=[], help="skip these packages")
     p.add_argument("--verbose", action="store_true")
     p.add_argument(
@@ -504,7 +512,7 @@ def _add_export_spec(subparsers):
     )
     p.add_argument(
         "venv",
-        help="(Optional) One or more venvs to include.  Default is to include all venvs.",
+        help="One or more venvs to include.  Default is to include all venvs.",
         nargs="*",
         default=None,
     )
