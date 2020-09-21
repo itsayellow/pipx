@@ -79,6 +79,7 @@ def _install_from_metadata(
     # install main package first
     install(
         venv_dir=venv_dir,
+        package_name=None,  # TODO: delete this if install is updated
         package_spec=venv_metadata.main_package.package_or_url,
         local_bin_dir=LOCAL_BIN_DIR,
         python=python,
