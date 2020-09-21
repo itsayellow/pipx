@@ -10,13 +10,11 @@ from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
 
-# TODO: handle venvs with no metadata
-# TODO: handle venvs with different version metadata
 # TODO: exit code accurate
-# TODO: optional --freeze switch for fully-frozen versions of all packages in venv
 
 
 # Based on reinstall-all without the uninstall
+# TODO: install frozen versions
 def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
@@ -69,6 +67,8 @@ def _install_from_metadata(
         )
 
 
+# TODO: handle venvs with no metadata
+# TODO: handle venvs with different version metadata
 def export_spec(
     out_filename: str,
     venv_container: VenvContainer,

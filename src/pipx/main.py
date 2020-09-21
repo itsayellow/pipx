@@ -514,7 +514,6 @@ def _add_export_spec(subparsers):
         "venv",
         help="One or more venvs to include.  Default is to include all venvs.",
         nargs="*",
-        default=None,
     )
 
 
