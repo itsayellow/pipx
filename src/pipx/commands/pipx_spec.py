@@ -38,6 +38,10 @@ def export_spec(
     all_venv_metadata = {}
 
     for venv_dir in sorted(venv_container.iter_venv_dirs()):
+        if venv_dir.name in skip_list:
+            continue
+        if include_list is not None and venv_dir.name not in include_list:
+            continue
         (venv_name, venv_metadata) = _get_venv_info(venv_dir)
         all_venv_metadata[venv_name] = venv_metadata
 

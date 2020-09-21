@@ -200,9 +200,11 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             skip=args.skip,
         )
     elif args.command == "export-spec":
-        # TODO: make optional include list
         return commands.export_spec(
-            args.output_file, venv_container, skip_list=args.skip, include_list=None
+            args.output_file,
+            venv_container,
+            skip_list=args.skip,
+            include_list=args.venv,
         )
     elif args.command == "install-spec":
         return commands.install_spec(
@@ -495,12 +497,17 @@ def _add_export_spec(subparsers):
         help="Export to a json file the configuration of all pipx-managed Virtual Environments",
         description="Export to a json file the configuration of all pipx-managed Virtual Environments",
     )
+    p.add_argument("--skip", nargs="+", default=[], help="skip these packages")
+    p.add_argument("--verbose", action="store_true")
     p.add_argument(
         "output_file", help="JSON file to be exported to",
     )
-    # TODO: make optional include list
-    p.add_argument("--skip", nargs="+", default=[], help="skip these packages")
-    p.add_argument("--verbose", action="store_true")
+    p.add_argument(
+        "venv",
+        help="(Optional) One or more venvs to include.  Default is to include all venvs.",
+        nargs="*",
+        default=None,
+    )
 
 
 def _add_install_spec(subparsers):
