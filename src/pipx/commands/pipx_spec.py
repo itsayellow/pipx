@@ -33,7 +33,7 @@ def _venv_installable(venv_metadata: PipxMetadata, verbose: bool,) -> bool:
         # Most probably it is a local path that is currently not valid
         return False
 
-    for (injected_name, injected_package,) in venv_metadata.injected_packages.items():
+    for (_injected_name, injected_package,) in venv_metadata.injected_packages.items():
         if injected_package.package_or_url is None:
             return False
         try:
