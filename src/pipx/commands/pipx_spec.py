@@ -6,6 +6,7 @@ from pipx.commands.inject import inject
 from pipx.commands.install import install
 from pipx.constants import LOCAL_BIN_DIR
 from pipx.emojies import sleep
+from pipx.package_specifier import parse_pip_freeze_specifier
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
@@ -19,8 +20,9 @@ def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
     python: str,
-    verbose: bool,
+    freeze_data: Optional[Dict[str, str]],
     force: bool,
+    verbose: bool,
 ):
     if venv_metadata.main_package.package_or_url is None:
         # TODO: handle this better
@@ -30,6 +32,9 @@ def _install_from_metadata(
     venv = Venv(venv_dir)
 
     # install main package first
+    if freeze_data is not None:
+        pass
+
     install(
         venv_dir=venv_dir,
         package_name=None,  # TODO: delete this if install is updated
@@ -95,7 +100,11 @@ def export_spec(
         spec_metadata[venv_dir.name]["metadata"] = venv_metadata
         if freeze:
             venv = Venv(venv_dir)
-            spec_metadata[venv_dir.name]["pip_freeze"] = venv.pip_freeze()
+            pip_freeze_dict = {}
+            for specifier in venv.pip_freeze():
+                package = parse_pip_freeze_specifier(specifier)
+                pip_freeze_dict[package] = specifier
+            spec_metadata[venv_dir.name]["pip_freeze"] = pip_freeze_dict
 
     with open(out_filename, "w") as pipx_export_fh:
         json.dump(
@@ -110,6 +119,8 @@ def export_spec(
 
 
 # TODO: how to handle json python mismatch with python argument
+# TODO: how to handle installing when original venv had
+#       local path install
 def install_spec(
     in_filename: str,
     venv_container: VenvContainer,
@@ -126,6 +137,13 @@ def install_spec(
         venv_dir = venv_container.get_venv_dir(venv_name)
         venv_metadata = PipxMetadata(venv_dir, read=False)
         venv_metadata.from_dict(spec_metadata[venv_name]["metadata"])
-        _install_from_metadata(venv_metadata, venv_container, python, verbose, force)
+        _install_from_metadata(
+            venv_metadata,
+            venv_container,
+            python,
+            spec_metadata[venv_name].get("pip_freeze", None),
+            force,
+            verbose,
+        )
 
     return 0

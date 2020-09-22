@@ -26,8 +26,7 @@ class ParsedPackage(NamedTuple):
 
 
 def _split_path_extras(package_spec: str) -> Tuple[str, str]:
-    """Returns (path, extras_string)
-    """
+    """Returns (path, extras_string)"""
     package_spec_extras_re = re.search(r"(.+)(\[.+\])", package_spec)
     if package_spec_extras_re:
         return (package_spec_extras_re.group(1), package_spec_extras_re.group(2))
@@ -36,8 +35,7 @@ def _split_path_extras(package_spec: str) -> Tuple[str, str]:
 
 
 def _parse_specifier(package_spec: str) -> ParsedPackage:
-    """Parse package_spec as would be given to pipx
-    """
+    """Parse package_spec as would be given to pipx"""
     # NOTE: If package_spec is valid pypi name, pip will always treat it as a
     #       pypi package, not checking for local path.
     #       We replicate pypi precedence here (only non-valid-pypi names
@@ -99,6 +97,18 @@ def _extras_to_str(extras: Set):
 
 def package_is_local_path(package_spec: str) -> bool:
     return _parse_specifier(package_spec).valid_local_path is not None
+
+
+def parse_pip_freeze_specifier(package_spec: str) -> str:
+    package_spec = re.sub(r"^-e\s+", "", package_spec)
+    egg_re = re.search(r"#egg=(\S+)$", package_spec)
+    if egg_re:
+        return egg_re.group(1)
+
+    parsed_package = _parse_specifier(package_spec)
+    if parsed_package.valid_pep508 is None:
+        raise PipxError("Internal Error: Pip freeze specifier is not valid PEP508.")
+    return parsed_package.valid_pep508.name
 
 
 def parse_specifier_for_install(
