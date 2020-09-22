@@ -76,7 +76,7 @@ def _install_from_metadata(
         if venv_metadata.main_package.package is None:
             raise PipxError("Main Package is None")
         main_package_or_url = freeze_data[venv_metadata.main_package.package]
-        print(f"{main_package_or_url = }")
+        print(f"main_package_or_url = {main_package_or_url}")
 
     install(
         venv_dir=venv_dir,
