@@ -21,7 +21,6 @@ def _package_info_modify_package_or_url_(
     original_package_info: PackageInfo, package_or_url
 ) -> PackageInfo:
     # restore original package_or_url in metadata if freeze_data after install
-    print(f"original_package_info.package = {original_package_info.package}")
     return PackageInfo(
         package=original_package_info.package,
         package_or_url=package_or_url,
@@ -101,16 +100,13 @@ def _install_from_metadata(
         raise PipxError("Internal Error with pipx.")
 
     venv_dir = venv_metadata.venv_dir
+    venv = Venv(venv_dir, python=python, verbose=verbose)
 
     # TODO: pip can provide a bogus git address if package is a local path,
     #       then this will fail.  Attempt to use full path instead?
     if not _venv_installable(venv_metadata, freeze_data, verbose):
         print(f"Cannot install {venv_dir.name}")
         return 1
-
-    venv = Venv(venv_dir)
-
-    # install main package first
     if freeze_data is not None:
         # install using frozen version
         # TODO: pip can provide a bogus git address if package is a local path,
@@ -119,6 +115,50 @@ def _install_from_metadata(
     else:
         main_package_or_url = venv_metadata.main_package.package_or_url
 
+    if freeze_data is not None:
+        user_installed_packages = []
+        user_installed_packages.append(venv_metadata.main_package.package)
+        for _injected_name, injected_package in venv_metadata.injected_packages.items():
+            if injected_package.package is None:
+                # TODO: handle this better
+                raise PipxError("Internal Error with pipx.")
+            user_installed_packages.append(injected_package.package)
+        freeze_dep_data = {
+            x: y for (x, y) in freeze_data.items() if x not in user_installed_packages
+        }
+
+    if freeze_dep_data:
+        # from install.py ----------------------------------------------------
+        try:
+            exists = venv_dir.exists()
+        except StopIteration:
+            exists = False
+
+        if exists:
+            if force:
+                print(f"Installing to existing directory {str(venv_dir)!r}")
+            else:
+                print(
+                    f"{venv_dir.name!r} already seems to be installed. "
+                    f"Not modifying existing installation in {str(venv_dir)!r}. "
+                    "Pass '--force' to force installation."
+                )
+                return
+
+        venv.create_venv(venv_metadata.venv_args, venv_metadata.main_package.pip_args)
+        # --------------------------------------------------------------------
+
+        # TODO: determine proper pip_args for each dep!  How??
+        #       In the meantime just use main_package pip_args
+        for (_package_name, package_spec) in freeze_dep_data.items():
+            cmd = ["install"] + venv_metadata.main_package.pip_args + [package_spec]
+            venv._run_pip(cmd)
+
+    # install_force also needs to be True if freeze_data exists, because we
+    #   already set up the venv
+    install_force = force or bool(freeze_data)
+
+    # install main package
     install(
         venv_dir=venv_dir,
         package_name=None,  # TODO: delete this if install is updated
@@ -128,7 +168,7 @@ def _install_from_metadata(
         pip_args=venv_metadata.main_package.pip_args,
         venv_args=venv_metadata.venv_args,
         verbose=verbose,
-        force=force,
+        force=install_force,
         include_dependencies=venv_metadata.main_package.include_dependencies,
         suffix=venv_metadata.main_package.suffix,
     )
@@ -145,7 +185,7 @@ def _install_from_metadata(
 
         venv.pipx_metadata.write()
 
-    # now install injected packages
+    # install injected packages
     for (
         injected_name,
         injected_package,
@@ -180,7 +220,6 @@ def _install_from_metadata(
             # update our venv's pipx_metadata after inject changed written version
             venv.pipx_metadata.read()
 
-            print(injected_package.package_or_url)
             venv.pipx_metadata.injected_packages[
                 injected_name
             ] = _package_info_modify_package_or_url_(
@@ -248,9 +287,10 @@ def export_spec(
         venv_metadata = PipxMetadata(venv_dir).to_dict()
         spec_metadata[venv_dir.name]["metadata"] = venv_metadata
         # TODO: how to handle installing when original venv had
-        #       local path install.  In this case, sometimes pip freeze
-        #       will return bogus git install string.
-        #       Should we invalidate a frozen venv with a local path??
+        #       local path install, especially editable.  In this case,
+        #       sometimes pip freeze will return bogus git install string.
+        #       Should we invalidate a frozen venv with a local path, or if
+        #       it is editable??
         if freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
