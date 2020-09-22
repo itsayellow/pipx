@@ -10,11 +10,31 @@ from pipx.package_specifier import (
     parse_pip_freeze_specifier,
     parse_specifier_for_install,
 )
-from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
+from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PackageInfo, PipxMetadata
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
 
 # TODO: exit code accurate
+
+
+def _package_info_modify_package_or_url_(
+    original_package_info: PackageInfo, package_or_url
+) -> PackageInfo:
+    # restore original package_or_url in metadata if freeze_data after install
+    print(f"original_package_info.package = {original_package_info.package}")
+    return PackageInfo(
+        package=original_package_info.package,
+        package_or_url=package_or_url,
+        pip_args=original_package_info.pip_args,
+        include_apps=original_package_info.include_apps,
+        include_dependencies=original_package_info.include_dependencies,
+        apps=original_package_info.apps,
+        app_paths=original_package_info.app_paths,
+        apps_of_dependencies=original_package_info.apps_of_dependencies,
+        app_paths_of_dependencies=original_package_info.app_paths_of_dependencies,
+        package_version=original_package_info.package_version,
+        suffix=original_package_info.suffix,
+    )
 
 
 def _venv_installable(
@@ -63,8 +83,8 @@ def _venv_installable(
 
 
 # Based on reinstall-all without the uninstall
-# TODO: install frozen versions
 # TODO: Refuse to install venv containing local paths?  Or try to resolve?
+# TODO: frozen dependencies also (not just install and inject frozen versions.)
 def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
@@ -82,6 +102,8 @@ def _install_from_metadata(
 
     venv_dir = venv_metadata.venv_dir
 
+    # TODO: pip can provide a bogus git address if package is a local path,
+    #       then this will fail.  Attempt to use full path instead?
     if not _venv_installable(venv_metadata, freeze_data, verbose):
         print(f"Cannot install {venv_dir.name}")
         return 1
@@ -92,7 +114,7 @@ def _install_from_metadata(
     if freeze_data is not None:
         # install using frozen version
         # TODO: pip can provide a bogus git address if package is a local path,
-        #       then this will fail
+        #       then this will fail.  Attempt to use full path instead?
         main_package_or_url = freeze_data[venv_metadata.main_package.package]
     else:
         main_package_or_url = venv_metadata.main_package.package_or_url
@@ -111,7 +133,17 @@ def _install_from_metadata(
         suffix=venv_metadata.main_package.suffix,
     )
 
-    # TODO: restore package_spec in metadata if freeze_data after install
+    if freeze_data is not None:
+        # restore original package_or_url in metadata if freeze_data after install
+
+        # update our venv's pipx_metadata after install changed written version
+        venv.pipx_metadata.read()
+
+        venv.pipx_metadata.main_package = _package_info_modify_package_or_url_(
+            venv.pipx_metadata.main_package, venv_metadata.main_package.package_or_url
+        )
+
+        venv.pipx_metadata.write()
 
     # now install injected packages
     for (
@@ -142,9 +174,51 @@ def _install_from_metadata(
             force=force,
         )
 
-        # TODO: restore package_spec in metadata if freeze_data after install
+        if freeze_data is not None:
+            # restore original package_or_url in metadata if freeze_data after install
 
-        # TODO: restore package_spec in metadata if freeze_data after install
+            # update our venv's pipx_metadata after inject changed written version
+            venv.pipx_metadata.read()
+
+            print(injected_package.package_or_url)
+            venv.pipx_metadata.injected_packages[
+                injected_name
+            ] = _package_info_modify_package_or_url_(
+                venv.pipx_metadata.injected_packages[injected_name],
+                injected_package.package_or_url,
+            )
+
+            venv.pipx_metadata.write()
+
+
+# TODO: how to handle installing when original venv had
+#       local path install
+def install_spec(
+    in_filename: str,
+    venv_container: VenvContainer,
+    python: str,
+    force: bool,
+    verbose: bool,
+) -> int:
+    input_file = Path(in_filename)
+    with open(input_file, "r") as pipx_spec_fh:
+        spec_metadata = json.load(pipx_spec_fh)
+    for venv_name in spec_metadata:
+        # if venv_name in venv_container:
+        #   continue
+        venv_dir = venv_container.get_venv_dir(venv_name)
+        venv_metadata = PipxMetadata(venv_dir, read=False)
+        venv_metadata.from_dict(spec_metadata[venv_name]["metadata"])
+        _install_from_metadata(
+            venv_metadata,
+            venv_container,
+            python,
+            spec_metadata[venv_name].get("pip_freeze", None),
+            force,
+            verbose,
+        )
+
+    return 0
 
 
 # TODO: handle venvs with no metadata
@@ -192,37 +266,6 @@ def export_spec(
             indent=4,
             sort_keys=True,
             cls=JsonEncoderHandlesPath,
-        )
-
-    return 0
-
-
-# TODO: how to handle json python mismatch with python argument
-# TODO: how to handle installing when original venv had
-#       local path install
-def install_spec(
-    in_filename: str,
-    venv_container: VenvContainer,
-    python: str,
-    force: bool,
-    verbose: bool,
-) -> int:
-    input_file = Path(in_filename)
-    with open(input_file, "r") as pipx_spec_fh:
-        spec_metadata = json.load(pipx_spec_fh)
-    for venv_name in spec_metadata:
-        # if venv_name in venv_container:
-        #   continue
-        venv_dir = venv_container.get_venv_dir(venv_name)
-        venv_metadata = PipxMetadata(venv_dir, read=False)
-        venv_metadata.from_dict(spec_metadata[venv_name]["metadata"])
-        _install_from_metadata(
-            venv_metadata,
-            venv_container,
-            python,
-            spec_metadata[venv_name].get("pip_freeze", None),
-            force,
-            verbose,
         )
 
     return 0
