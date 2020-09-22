@@ -101,9 +101,9 @@ def package_is_local_path(package_spec: str) -> bool:
 
 def parse_pip_freeze_specifier(package_spec: str) -> str:
     package_spec = re.sub(r"^-e\s+", "", package_spec)
-    egg_re = re.search(r"#egg=(\S+)$", package_spec)
+    egg_re = re.search(r"#egg=([^&]+)", package_spec)
     if egg_re:
-        return egg_re.group(1)
+        return canonicalize_name(egg_re.group(1))
 
     parsed_package = _parse_specifier(package_spec)
     if parsed_package.valid_pep508 is None:
