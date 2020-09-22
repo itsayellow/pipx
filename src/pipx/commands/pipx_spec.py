@@ -18,6 +18,10 @@ from pipx.venv import Venv, VenvContainer
 
 
 def _venv_installable(venv_metadata: PipxMetadata, verbose: bool,) -> bool:
+    """Return True if main and all injected packages have
+    valid package specifiers.
+    Usually returns False for invalid local path package specifier.
+    """
     if venv_metadata.main_package.package_or_url is None:
         return False
     try:
