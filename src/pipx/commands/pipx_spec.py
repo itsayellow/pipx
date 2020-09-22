@@ -173,6 +173,10 @@ def export_spec(
         spec_metadata[venv_dir.name] = {}
         venv_metadata = PipxMetadata(venv_dir).to_dict()
         spec_metadata[venv_dir.name]["metadata"] = venv_metadata
+        # TODO: how to handle installing when original venv had
+        #       local path install.  In this case, sometimes pip freeze
+        #       will return bogus git install string.
+        #       Should we invalidate a frozen venv with a local path??
         if freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
