@@ -107,7 +107,7 @@ def parse_pip_freeze_specifier(package_spec: str) -> str:
 
     parsed_package = _parse_specifier(package_spec)
     if parsed_package.valid_pep508 is None:
-        raise PipxError("Internal Error: Pip freeze specifier is not valid PEP508.")
+        raise PipxError("Internal Error: Cannot parse pip freeze specifier.")
     return parsed_package.valid_pep508.name
 
 

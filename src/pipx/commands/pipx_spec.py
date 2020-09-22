@@ -6,7 +6,10 @@ from pipx.commands.inject import inject
 from pipx.commands.install import install
 from pipx.constants import LOCAL_BIN_DIR
 from pipx.emojies import sleep
-from pipx.package_specifier import parse_pip_freeze_specifier
+from pipx.package_specifier import (
+    parse_pip_freeze_specifier,
+    parse_specifier_for_install,
+)
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
@@ -14,8 +17,35 @@ from pipx.venv import Venv, VenvContainer
 # TODO: exit code accurate
 
 
+def _venv_installable(venv_metadata: PipxMetadata, verbose: bool,) -> bool:
+    if venv_metadata.main_package.package_or_url is None:
+        return False
+    try:
+        package_or_url, pip_args = parse_specifier_for_install(
+            venv_metadata.main_package.package_or_url,
+            venv_metadata.main_package.pip_args,
+        )
+    except PipxError:
+        # Most probably it is a local path that is currently not valid
+        return False
+
+    for (injected_name, injected_package,) in venv_metadata.injected_packages.items():
+        if injected_package.package_or_url is None:
+            return False
+        try:
+            package_or_url, pip_args = parse_specifier_for_install(
+                injected_package.package_or_url, injected_package.pip_args
+            )
+        except PipxError:
+            # Most probably it is a local path that is currently not valid
+            return False
+
+    return True
+
+
 # Based on reinstall-all without the uninstall
 # TODO: install frozen versions
+# TODO: Refuse to install venv containing local paths?  Or try to resolve?
 def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
@@ -29,11 +59,20 @@ def _install_from_metadata(
         raise PipxError("Internal Error with pipx.")
 
     venv_dir = venv_metadata.venv_dir
+
+    if not _venv_installable(venv_metadata, verbose):
+        # venv is uninstallable
+        print(f"Cannot install {venv_dir.name}")
+        return 1
+
     venv = Venv(venv_dir)
 
     # install main package first
     if freeze_data is not None:
-        pass
+        if venv_metadata.main_package.package is None:
+            raise PipxError("Main Package is None")
+        main_package_or_url = freeze_data[venv_metadata.main_package.package]
+        print(f"{main_package_or_url = }")
 
     install(
         venv_dir=venv_dir,
