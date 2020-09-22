@@ -17,11 +17,26 @@ from pipx.venv import Venv, VenvContainer
 # TODO: exit code accurate
 
 
-def _venv_installable(venv_metadata: PipxMetadata, verbose: bool,) -> bool:
-    """Return True if main and all injected packages have
-    valid package specifiers.
+def _venv_installable(
+    venv_metadata: PipxMetadata, freeze_data: Optional[Dict[str, str]], verbose: bool,
+) -> bool:
+    """Return True if main, all injected packages, and freeze_data specifiers
+    all have valid package specifiers.
     Usually returns False for invalid local path package specifier.
     """
+    # Check all pip_freeze specs for uninstallable package_specs
+    if freeze_data is None:
+        freeze_data = {}
+    for package in freeze_data:
+        try:
+            package_or_url, pip_args = parse_specifier_for_install(
+                freeze_data[package], []
+            )
+        except PipxError:
+            # Most probably it is a local path that is currently not valid
+            return False
+
+    # Check metadata for uninstallable package_specs
     if venv_metadata.main_package.package_or_url is None:
         return False
     try:
@@ -58,14 +73,16 @@ def _install_from_metadata(
     force: bool,
     verbose: bool,
 ):
-    if venv_metadata.main_package.package_or_url is None:
+    if (
+        venv_metadata.main_package.package_or_url is None
+        or venv_metadata.main_package.package is None
+    ):
         # TODO: handle this better
         raise PipxError("Internal Error with pipx.")
 
     venv_dir = venv_metadata.venv_dir
 
-    if not _venv_installable(venv_metadata, verbose):
-        # venv is uninstallable
+    if not _venv_installable(venv_metadata, freeze_data, verbose):
         print(f"Cannot install {venv_dir.name}")
         return 1
 
@@ -73,15 +90,17 @@ def _install_from_metadata(
 
     # install main package first
     if freeze_data is not None:
-        if venv_metadata.main_package.package is None:
-            raise PipxError("Main Package is None")
+        # install using frozen version
+        # TODO: pip can provide a bogus git address if package is a local path,
+        #       then this will fail
         main_package_or_url = freeze_data[venv_metadata.main_package.package]
-        print(f"main_package_or_url = {main_package_or_url}")
+    else:
+        main_package_or_url = venv_metadata.main_package.package_or_url
 
     install(
         venv_dir=venv_dir,
         package_name=None,  # TODO: delete this if install is updated
-        package_spec=venv_metadata.main_package.package_or_url,
+        package_spec=main_package_or_url,
         local_bin_dir=LOCAL_BIN_DIR,
         python=python,
         pip_args=venv_metadata.main_package.pip_args,
@@ -92,27 +111,40 @@ def _install_from_metadata(
         suffix=venv_metadata.main_package.suffix,
     )
 
+    # TODO: restore package_spec in metadata if freeze_data after install
+
     # now install injected packages
     for (
         injected_name,
         injected_package,
     ) in venv.pipx_metadata.injected_packages.items():
-        if injected_package.package_or_url is None:
+        if injected_package.package_or_url is None or injected_package.package is None:
             # This should never happen, but package_or_url is type
             #   Optional[str] so mypy thinks it could be None
             raise PipxError(
                 f"Internal Error injecting package {injected_package} into {venv_dir.name}"
             )
+
+        if freeze_data is not None:
+            # install using frozen version
+            injected_package_or_url = freeze_data[injected_package.package]
+        else:
+            injected_package_or_url = injected_package.package_or_url
+
         inject(
             venv_dir,
             injected_name,
-            injected_package.package_or_url,
+            injected_package_or_url,
             injected_package.pip_args,
             verbose=verbose,
             include_apps=injected_package.include_apps,
             include_dependencies=injected_package.include_dependencies,
-            force=True,
+            force=force,
         )
+
+        # TODO: restore package_spec in metadata if freeze_data after install
+
+        # TODO: restore package_spec in metadata if freeze_data after install
 
 
 # TODO: handle venvs with no metadata
