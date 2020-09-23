@@ -46,14 +46,17 @@ def test_install_easy_packages(capsys, pipx_temp_env, caplog, package):
     install_package(capsys, pipx_temp_env, caplog, package)
 
 
-# TODO: need a permanent strategy for ansible since v2.10.0
 @pytest.mark.parametrize(
-    "package", ["cloudtoken", "awscli", "ansible==2.9.13", "shell-functools"]
+    "package", ["cloudtoken", "awscli", "ansible", "shell-functools"]
 )
 def test_install_tricky_packages(capsys, pipx_temp_env, caplog, package):
     if os.getenv("FAST"):
         pytest.skip("skipping slow tests")
-    if sys.platform.startswith("win") and package == "ansible==2.9.13":
+    if sys.platform.startswith("win") and package == "ansible":
+        pytest.skip("Ansible is not installable on Windows")
+
+    # TODO: TEMPORARY HACK, need a permanent strategy for ansible since v2.10.0
+    if package == "ansible":
         pytest.skip("Ansible is not installable on Windows")
 
     install_package(capsys, pipx_temp_env, caplog, package)
