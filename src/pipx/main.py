@@ -206,6 +206,7 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
             skip_list=args.skip,
             include_list=args.venv or None,
             freeze=args.freeze,
+            freeze_all=args.freeze_all,
             verbose=verbose,
         )
     elif args.command == "install-spec":
@@ -501,6 +502,11 @@ def _add_export_spec(subparsers):
     )
     p.add_argument(
         "--freeze",
+        action="store_true",
+        help="Record the versions of all installed and injected packages in each venv.",
+    )
+    p.add_argument(
+        "--freeze-all",
         action="store_true",
         help="Record the versions of all packages in each venv: installed, "
         "injected, and all dependencies.",

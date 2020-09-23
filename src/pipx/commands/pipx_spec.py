@@ -84,9 +84,7 @@ def _venv_installable(
     return True
 
 
-def _unfreeze_install_deps(
-    venv: Venv, venv_metadata: PipxMetadata, freeze_data: Dict[str, str], force: bool
-) -> None:
+def _get_user_installed_packages(venv_metadata: PipxMetadata):
     user_installed_packages = []
     user_installed_packages.append(venv_metadata.main_package.package)
     for _injected_name, injected_package in venv_metadata.injected_packages.items():
@@ -94,6 +92,13 @@ def _unfreeze_install_deps(
             # TODO: handle this better
             raise PipxError("Internal Error with pipx.")
         user_installed_packages.append(injected_package.package)
+    return user_installed_packages
+
+
+def _unfreeze_install_deps(
+    venv: Venv, venv_metadata: PipxMetadata, freeze_data: Dict[str, str], force: bool
+) -> None:
+    user_installed_packages = _get_user_installed_packages(venv_metadata)
     freeze_dep_data = {
         x: y for (x, y) in freeze_data.items() if x not in user_installed_packages
     }
@@ -272,6 +277,7 @@ def export_spec(
     skip_list: List[str],
     include_list: Optional[List[str]],
     freeze: bool,
+    freeze_all: bool,
     verbose: bool,
 ) -> int:
     dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
@@ -288,15 +294,22 @@ def export_spec(
         if include_list is not None and venv_dir.name not in include_list:
             continue
         spec_metadata[venv_dir.name] = {}
-        venv_metadata = PipxMetadata(venv_dir).to_dict()
-        spec_metadata[venv_dir.name]["metadata"] = venv_metadata
-        if freeze:
+        venv_metadata = PipxMetadata(venv_dir)
+        venv_metadata_dict = venv_metadata.to_dict()
+        spec_metadata[venv_dir.name]["metadata"] = venv_metadata_dict
+        if freeze_all or freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
             for specifier in venv.pip_freeze():
                 package = parse_pip_freeze_specifier(specifier)
                 pip_freeze_dict[package] = specifier
+        if freeze_all:
             spec_metadata[venv_dir.name]["pip_freeze"] = pip_freeze_dict
+        elif freeze:
+            user_installed_packages = _get_user_installed_packages(venv_metadata)
+            spec_metadata[venv_dir.name]["pip_freeze"] = {
+                x: y for x, y in pip_freeze_dict.items() if x in user_installed_packages
+            }
 
     with open(out_filename, "w") as pipx_export_fh:
         json.dump(
