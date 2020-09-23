@@ -12,6 +12,6 @@ from helpers import run_pipx_cli
 
 def test_export_spec(pipx_temp_env, monkeypatch, capsys):
     run_pipx_cli(["install", "pycowsay"])
-    run_pipx_cli(["inject", "black"])
-    run_pipx_cli(["inject", "pylint"])
+    run_pipx_cli(["inject", "pycowsay", "black"])
+    run_pipx_cli(["inject", "pycowsay", "pylint"])
     assert not run_pipx_cli(["export-spec", "test.json"])
