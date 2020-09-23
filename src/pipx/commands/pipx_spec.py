@@ -24,7 +24,6 @@ from pipx.venv import Venv, VenvContainer
 def _package_info_modify_package_or_url_(
     original_package_info: PackageInfo, package_or_url
 ) -> PackageInfo:
-    # restore original package_or_url in metadata if freeze_data after install
     return PackageInfo(
         package=original_package_info.package,
         package_or_url=package_or_url,
@@ -287,7 +286,14 @@ def install_spec(
     return 0
 
 
-# TODO: handle venvs with no metadata
+def _venvs_with_missing_metadata(venv_dirs: List[Path],) -> List[str]:
+    venvs_no_metadata = []
+    for venv_dir in venv_dirs:
+        if PipxMetadata(venv_dir).main_package.package is None:
+            venvs_no_metadata.append(venv_dir.name)
+    return venvs_no_metadata
+
+
 # TODO: handle venvs with different version metadata
 def export_spec(
     out_filename: str,
@@ -306,11 +312,27 @@ def export_spec(
     venv_container.verify_shared_libs()
     spec_metadata: Dict[str, Any] = {}
 
+    venv_dirs_export: List[Path] = []
     for venv_dir in sorted(venv_container.iter_venv_dirs()):
         if venv_dir.name in skip_list:
             continue
         if include_list is not None and venv_dir.name not in include_list:
             continue
+        venv_dirs_export.append(venv_dir)
+
+    venvs_no_metadata = _venvs_with_missing_metadata(venv_dirs_export)
+    if _venvs_with_missing_metadata(venv_dirs_export):
+        print("Cannot export pipx spec.  The following venvs have missing metadata:\n")
+        print("    ", end="")
+        for venv_name in venvs_no_metadata:
+            print(f"    {venv_name},", end="")
+        print("")
+        print(
+            "    Please uninstall and install each of these venvs, or reinstall-all to fix."
+        )
+        return 1
+
+    for venv_dir in venv_dirs_export:
         spec_metadata[venv_dir.name] = {}
         venv_metadata = PipxMetadata(venv_dir)
         venv_metadata_dict = venv_metadata.to_dict()
