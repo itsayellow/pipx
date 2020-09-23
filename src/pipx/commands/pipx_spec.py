@@ -15,6 +15,9 @@ from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
 
 # TODO: exit code accurate
+# TODO: refuse to install_spec on frozen spec if pip_args differ between
+#       main package and injected
+# TODO: how to handle local paths on install
 
 
 def _package_info_modify_package_or_url_(
@@ -96,11 +99,9 @@ def _unfreeze_install_deps(
     }
 
     if freeze_dep_data:
-        # from install.py ----------------------------------------------------
+        # from install.py
         try:
-            exists = (
-                venv.root.exists()
-            )  # TODO: what does 'and next(self.root.iterdir())' do??
+            exists = venv.root.exists() and next(venv.root.iterdir())
         except StopIteration:
             exists = False
 
@@ -116,7 +117,6 @@ def _unfreeze_install_deps(
                 return
 
         venv.create_venv(venv_metadata.venv_args, venv_metadata.main_package.pip_args)
-        # --------------------------------------------------------------------
 
         # TODO: determine proper pip_args for each dep!  How??
         #       In the meantime just use main_package pip_args
@@ -152,7 +152,8 @@ def _restore_metadata_after_unfreeze(venv: Venv, venv_metadata: PipxMetadata) ->
 
 # Based on reinstall-all without the uninstall
 # TODO: Refuse to install venv containing local paths?  Or try to resolve?
-# TODO: frozen dependencies also (not just install and inject frozen versions.)
+# TODO: pip freeze will provide a bogus git address specification if package is a
+#       local path and/or editable.  Attempt to use full local path instead.
 def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
@@ -171,16 +172,12 @@ def _install_from_metadata(
     venv_dir = venv_metadata.venv_dir
     venv = Venv(venv_dir, python=python, verbose=verbose)
 
-    # TODO: pip can provide a bogus git address if package is a local path,
-    #       then this will fail.  Attempt to use full path instead?
     if not _venv_installable(venv_metadata, freeze_data, verbose):
         print(f"Cannot install {venv_dir.name}")
         return 1
 
     if freeze_data is not None:
         # install using frozen version
-        # TODO: pip can provide a bogus git address if package is a local path,
-        #       then this will fail.  Attempt to use full path instead?
         main_package_or_url = freeze_data[venv_metadata.main_package.package]
         _unfreeze_install_deps(venv, venv_metadata, freeze_data, force)
         # install_force needs to be True because we already set up the venv
@@ -293,11 +290,6 @@ def export_spec(
         spec_metadata[venv_dir.name] = {}
         venv_metadata = PipxMetadata(venv_dir).to_dict()
         spec_metadata[venv_dir.name]["metadata"] = venv_metadata
-        # TODO: how to handle installing when original venv had
-        #       local path install, especially editable.  In this case,
-        #       sometimes pip freeze will return bogus git install string.
-        #       Should we invalidate a frozen venv with a local path, or if
-        #       it is editable??
         if freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
