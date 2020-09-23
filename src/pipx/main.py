@@ -500,12 +500,13 @@ def _add_export_spec(subparsers):
         help="Export to a json file the configuration of all pipx-managed Virtual Environments",
         description="Export to a json file the configuration of all pipx-managed Virtual Environments",
     )
-    p.add_argument(
+    freeze_group = p.add_mutually_exclusive_group()
+    freeze_group.add_argument(
         "--freeze",
         action="store_true",
         help="Record the versions of all installed and injected packages in each venv.",
     )
-    p.add_argument(
+    freeze_group.add_argument(
         "--freeze-all",
         action="store_true",
         help="Record the versions of all packages in each venv: installed, "
