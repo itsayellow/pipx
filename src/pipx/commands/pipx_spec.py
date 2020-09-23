@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional
 
@@ -87,12 +88,20 @@ def _venv_installable(
 def _get_user_installed_packages(venv_metadata: PipxMetadata):
     user_installed_packages = []
     user_installed_packages.append(venv_metadata.main_package.package)
-    for _injected_name, injected_package in venv_metadata.injected_packages.items():
+    for _, injected_package in venv_metadata.injected_packages.items():
         if injected_package.package is None:
             # TODO: handle this better
             raise PipxError("Internal Error with pipx.")
         user_installed_packages.append(injected_package.package)
     return user_installed_packages
+
+
+def _pip_args_all_same(venv_metadata: PipxMetadata) -> bool:
+    for _, injected_package in venv_metadata.injected_packages.items():
+        if injected_package.pip_args != venv_metadata.main_package.pip_args:
+            # TODO: do we need to check for same options just out of order?
+            return False
+    return True
 
 
 def _unfreeze_install_deps(
@@ -123,8 +132,16 @@ def _unfreeze_install_deps(
 
         venv.create_venv(venv_metadata.venv_args, venv_metadata.main_package.pip_args)
 
-        # TODO: determine proper pip_args for each dep!  How??
-        #       In the meantime just use main_package pip_args
+        if not _pip_args_all_same(venv_metadata):
+            logging.warning(
+                "pip arguments for main package differ with pip "
+                "arguments for one or more injected packages.  This "
+                "may make restoring dependencies fail or behave "
+                "unpredictably."
+            )
+
+        # use main_package pip_args for all dependencies because we don't know
+        #   otherwise
         for (_package_name, package_spec) in freeze_dep_data.items():
             cmd = ["install"] + venv_metadata.main_package.pip_args + [package_spec]
             venv._run_pip(cmd)
@@ -251,6 +268,7 @@ def install_spec(
     input_file = Path(in_filename)
     with open(input_file, "r") as pipx_spec_fh:
         spec_metadata = json.load(pipx_spec_fh)
+
     for venv_name in spec_metadata:
         # if venv_name in venv_container:
         #   continue
