@@ -173,8 +173,8 @@ def _restore_metadata_after_unfreeze(venv: Venv, venv_metadata: PipxMetadata) ->
 
 # Based on reinstall-all without the uninstall
 # TODO: Refuse to install venv containing local paths?  Or try to resolve?
-# TODO: pip freeze will provide a bogus git address specification if package is a
-#       local path and/or editable.  Attempt to use full local path instead.
+# TODO: if freeze or freeze-all with local path, issue warning that it may not
+#       be same version.
 def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
@@ -294,7 +294,27 @@ def _venvs_with_missing_metadata(venv_dirs: List[Path],) -> List[str]:
     return venvs_no_metadata
 
 
+def _editable_package_path(package: str, venv_metadata: PipxMetadata) -> Optional[str]:
+    """Return path to package if it is editable, None otherwise.
+    """
+    if package == venv_metadata.main_package.package:
+        if "--editable" in venv_metadata.main_package.pip_args:
+            return venv_metadata.main_package.package_or_url
+        else:
+            return None
+    else:
+        for package in venv_metadata.injected_packages:
+            if "--editable" in venv_metadata.injected_packages[package].pip_args:
+                return venv_metadata.main_package.package_or_url
+            else:
+                return None
+
+    return None
+
+
 # TODO: handle venvs with different version metadata
+# TODO: what does pip freeze provide with non-editable local path?
+# TODO: does non-editable local path need extra note that it is local?
 def export_spec(
     out_filename: str,
     venv_container: VenvContainer,
@@ -335,14 +355,18 @@ def export_spec(
     for venv_dir in venv_dirs_export:
         spec_metadata[venv_dir.name] = {}
         venv_metadata = PipxMetadata(venv_dir)
-        venv_metadata_dict = venv_metadata.to_dict()
-        spec_metadata[venv_dir.name]["metadata"] = venv_metadata_dict
+        spec_metadata[venv_dir.name]["metadata"] = venv_metadata.to_dict()
         if freeze_all or freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
             for specifier in venv.pip_freeze():
                 package = parse_pip_freeze_specifier(specifier)
-                pip_freeze_dict[package] = specifier
+                # TODO: handle non-editable local path how?
+                package_path = _editable_package_path(package, venv_metadata)
+                if package_path is not None:
+                    pip_freeze_dict[package] = package_path
+                else:
+                    pip_freeze_dict[package] = specifier
         if freeze_all:
             spec_metadata[venv_dir.name]["pip_freeze"] = pip_freeze_dict
         elif freeze:
