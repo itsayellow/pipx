@@ -20,6 +20,8 @@ from pipx.venv import Venv, VenvContainer
 #       main package and injected
 # TODO: how to handle local paths on install
 
+PIPX_SPEC_VERSION = "0.1"
+
 
 def _package_info_modify_package_or_url_(
     original_package_info: PackageInfo, package_or_url
@@ -268,17 +270,17 @@ def install_spec(
     with open(input_file, "r") as pipx_spec_fh:
         spec_metadata = json.load(pipx_spec_fh)
 
-    for venv_name in spec_metadata:
+    for venv_name in spec_metadata["venvs"]:
         # if venv_name in venv_container:
         #   continue
         venv_dir = venv_container.get_venv_dir(venv_name)
         venv_metadata = PipxMetadata(venv_dir, read=False)
-        venv_metadata.from_dict(spec_metadata[venv_name]["metadata"])
+        venv_metadata.from_dict(spec_metadata["venvs"][venv_name]["metadata"])
         _install_from_metadata(
             venv_metadata,
             venv_container,
             python,
-            spec_metadata[venv_name].get("pip_freeze", None),
+            spec_metadata["venvs"][venv_name].get("pip_freeze", None),
             force,
             verbose,
         )
@@ -314,7 +316,7 @@ def _editable_package_path(package: str, venv_metadata: PipxMetadata) -> Optiona
 
 # TODO: handle venvs with different version metadata
 # TODO: what does pip freeze provide with non-editable local path?
-# TODO: does non-editable local path need extra note that it is local?
+# TODO: does non-editable local path need extra metadata note that it is local?
 def export_spec(
     out_filename: str,
     venv_container: VenvContainer,
@@ -330,7 +332,7 @@ def export_spec(
         return 0
 
     venv_container.verify_shared_libs()
-    spec_metadata: Dict[str, Any] = {}
+    spec_metadata: Dict[str, Any] = {"spec_version": PIPX_SPEC_VERSION, "venvs": {}}
 
     venv_dirs_export: List[Path] = []
     for venv_dir in sorted(venv_container.iter_venv_dirs()):
@@ -345,7 +347,7 @@ def export_spec(
         print("Cannot export pipx spec.  The following venvs have missing metadata:\n")
         print("    ", end="")
         for venv_name in venvs_no_metadata:
-            print(f"    {venv_name},", end="")
+            print(f"{venv_name}, ", end="")
         print("")
         print(
             "    Please uninstall and install each of these venvs, or reinstall-all to fix."
@@ -353,9 +355,9 @@ def export_spec(
         return 1
 
     for venv_dir in venv_dirs_export:
-        spec_metadata[venv_dir.name] = {}
+        spec_metadata["venvs"][venv_dir.name] = {}
         venv_metadata = PipxMetadata(venv_dir)
-        spec_metadata[venv_dir.name]["metadata"] = venv_metadata.to_dict()
+        spec_metadata["venvs"][venv_dir.name]["metadata"] = venv_metadata.to_dict()
         if freeze_all or freeze:
             venv = Venv(venv_dir)
             pip_freeze_dict = {}
@@ -368,10 +370,10 @@ def export_spec(
                 else:
                     pip_freeze_dict[package] = specifier
         if freeze_all:
-            spec_metadata[venv_dir.name]["pip_freeze"] = pip_freeze_dict
+            spec_metadata["venvs"][venv_dir.name]["pip_freeze"] = pip_freeze_dict
         elif freeze:
             user_installed_packages = _get_user_installed_packages(venv_metadata)
-            spec_metadata[venv_dir.name]["pip_freeze"] = {
+            spec_metadata["venvs"][venv_dir.name]["pip_freeze"] = {
                 x: y for x, y in pip_freeze_dict.items() if x in user_installed_packages
             }
 
