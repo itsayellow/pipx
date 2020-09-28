@@ -497,8 +497,8 @@ def _add_runpip(subparsers, autocomplete_list_of_installed_packages):
 def _add_export_spec(subparsers):
     p = subparsers.add_parser(
         "export-spec",
-        help="Export to a json file the configuration of all pipx-managed Virtual Environments",
-        description="Export to a json file the configuration of all pipx-managed Virtual Environments",
+        help="Export to a json file the configuration of pipx-managed Virtual Environments",
+        description="Export to a json file the configuration of pipx-managed Virtual Environments",
     )
     freeze_group = p.add_mutually_exclusive_group()
     freeze_group.add_argument(
@@ -527,8 +527,8 @@ def _add_export_spec(subparsers):
 def _add_install_spec(subparsers):
     p = subparsers.add_parser(
         "install-spec",
-        help="Install Virtual Environments and their packages specified by a pipx json file.",
-        description="Install Virtual Environments and their packages specified by a pipx json file.",
+        help="Install Virtual Environments and their packages specified by a pipx spec file.",
+        description="Install Virtual Environments and their packages specified by a pipx spec file.",
     )
     p.add_argument(
         "input_file", help="JSON file containing installation specification.",
