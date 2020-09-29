@@ -9,6 +9,7 @@ from pipx.constants import LOCAL_BIN_DIR
 from pipx.emojies import sleep
 from pipx.package_specifier import (
     parse_pip_freeze_specifier,
+    parse_specifier,
     parse_specifier_for_install,
 )
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PackageInfo, PipxMetadata
@@ -16,9 +17,18 @@ from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
 
 # TODO: exit code accurate
-# TODO: refuse to install_spec on frozen spec if pip_args differ between
-#       main package and injected
-# TODO: how to handle local paths on install
+
+"""
+install_spec impossible with (fail on install):
+    Local path does not exist on this system
+
+Freezing / Unfreezing is impossible with (warn on export_spec, fail on install_spec):
+    Local paths (no way to verify "version")
+
+Freezing / Unfreezing All is impossible with (warn on export_spec, fail on install_spec):
+    pip_args different for main and injected packages (which pip_args to use
+        with a particular dep?  We don't know where the dep came from.)
+"""
 
 PIPX_SPEC_VERSION = "0.1"
 
@@ -42,7 +52,7 @@ def _package_info_modify_package_or_url_(
 
 
 def _venv_installable(
-    venv_metadata: PipxMetadata, freeze_data: Optional[Dict[str, str]], verbose: bool,
+    venv_metadata: PipxMetadata, freeze_data: Optional[Dict[str, Any]], verbose: bool,
 ) -> bool:
     """Return True if main, all injected packages, and freeze_data specifiers
     all have valid package specifiers.
@@ -54,7 +64,7 @@ def _venv_installable(
     for package in freeze_data:
         try:
             package_or_url, pip_args = parse_specifier_for_install(
-                freeze_data[package], []
+                freeze_data[package]["specifier"], []
             )
         except PipxError:
             # Most probably it is a local path that is currently not valid
@@ -106,7 +116,7 @@ def _pip_args_all_same(venv_metadata: PipxMetadata) -> bool:
 
 
 def _unfreeze_install_deps(
-    venv: Venv, venv_metadata: PipxMetadata, freeze_data: Dict[str, str], force: bool
+    venv: Venv, venv_metadata: PipxMetadata, freeze_data: Dict[str, Any], force: bool
 ) -> None:
     user_installed_packages = _get_user_installed_packages(venv_metadata)
     freeze_dep_data = {
@@ -143,8 +153,12 @@ def _unfreeze_install_deps(
 
         # use main_package pip_args for all dependencies because we don't know
         #   otherwise
-        for (_package_name, package_spec) in freeze_dep_data.items():
-            cmd = ["install"] + venv_metadata.main_package.pip_args + [package_spec]
+        for (_, package_dict) in freeze_dep_data.items():
+            cmd = (
+                ["install"]
+                + venv_metadata.main_package.pip_args
+                + [package_dict["specifier"]]
+            )
             venv._run_pip(cmd)
 
 
@@ -181,7 +195,7 @@ def _install_from_metadata(
     venv_metadata: PipxMetadata,
     venv_container: VenvContainer,
     python: str,
-    freeze_data: Optional[Dict[str, str]],
+    freeze_data: Optional[Dict[str, Any]],
     force: bool,
     verbose: bool,
 ):
@@ -201,7 +215,9 @@ def _install_from_metadata(
 
     if freeze_data is not None:
         # install using frozen version
-        main_package_or_url = freeze_data[venv_metadata.main_package.package]
+        main_package_or_url = freeze_data[venv_metadata.main_package.package][
+            "specifier"
+        ]
         _unfreeze_install_deps(venv, venv_metadata, freeze_data, force)
         # install_force needs to be True because we already set up the venv
         install_force = True
@@ -238,7 +254,7 @@ def _install_from_metadata(
 
         if freeze_data is not None:
             # install using frozen version
-            injected_package_or_url = freeze_data[injected_package.package]
+            injected_package_or_url = freeze_data[injected_package.package]["specifier"]
         else:
             injected_package_or_url = injected_package.package_or_url
 
@@ -296,17 +312,26 @@ def _venvs_with_missing_metadata(venv_dirs: List[Path],) -> List[str]:
     return venvs_no_metadata
 
 
-def _editable_package_path(package: str, venv_metadata: PipxMetadata) -> Optional[str]:
+# TODO: this will not find local packages that are only dependencies and
+#       not in PipxMetadata
+def _local_package_path(package: str, venv_metadata: PipxMetadata) -> Optional[str]:
     """Return path to package if it is editable, None otherwise.
     """
     if package == venv_metadata.main_package.package:
-        if "--editable" in venv_metadata.main_package.pip_args:
+        if venv_metadata.main_package.package_or_url is None:
+            # TODO: handle this better
+            raise PipxError("Internal Error with pipx.")
+        if parse_specifier(venv_metadata.main_package.package_or_url).valid_local_path:
             return venv_metadata.main_package.package_or_url
         else:
             return None
     else:
         for package in venv_metadata.injected_packages:
-            if "--editable" in venv_metadata.injected_packages[package].pip_args:
+            package_or_url = venv_metadata.injected_packages[package].package_or_url
+            if package_or_url is None:
+                # TODO: handle this better
+                raise PipxError("Internal Error with pipx.")
+            if parse_specifier(package_or_url).valid_local_path:
                 return venv_metadata.main_package.package_or_url
             else:
                 return None
@@ -314,8 +339,23 @@ def _editable_package_path(package: str, venv_metadata: PipxMetadata) -> Optiona
     return None
 
 
+def _check_for_freeze_problems(venv: Venv, freeze_all: bool):
+    """Check for future or current problems with unfreezing / freezing
+
+    Warn on export_spec, fail on install_spec:
+        --freeze is impossible:
+            Local paths in main, injected (no way to verify "version")
+
+        --freeze-all is impossible:
+            pip_args different for main and injected packages (which pip_args to use
+                with a particular dep?  We don't know where the dep came from.)
+            Local paths in a dep (TODO: how to detect?!?!)
+    """
+    problems: List[str] = []
+    return problems
+
+
 # TODO: handle venvs with different version metadata
-# TODO: what does pip freeze provide with non-editable local path?
 # TODO: does non-editable local path need extra metadata note that it is local?
 def export_spec(
     out_filename: str,
@@ -331,7 +371,9 @@ def export_spec(
         print(f"nothing has been installed with pipx {sleep}")
         return 0
 
+    # TODO: remove this?
     venv_container.verify_shared_libs()
+
     spec_metadata: Dict[str, Any] = {"spec_version": PIPX_SPEC_VERSION, "venvs": {}}
 
     venv_dirs_export: List[Path] = []
@@ -360,15 +402,16 @@ def export_spec(
         spec_metadata["venvs"][venv_dir.name]["metadata"] = venv_metadata.to_dict()
         if freeze_all or freeze:
             venv = Venv(venv_dir)
-            pip_freeze_dict = {}
+            pip_freeze_dict: Dict[str, Any] = {}
             for specifier in venv.pip_freeze():
                 package = parse_pip_freeze_specifier(specifier)
-                # TODO: handle non-editable local path how?
-                package_path = _editable_package_path(package, venv_metadata)
+                package_path = _local_package_path(package, venv_metadata)
                 if package_path is not None:
-                    pip_freeze_dict[package] = package_path
+                    pip_freeze_dict[package]["specifier"] = package_path
+                    pip_freeze_dict[package]["local"] = True
                 else:
-                    pip_freeze_dict[package] = specifier
+                    pip_freeze_dict[package]["specifier"] = specifier
+                    pip_freeze_dict[package]["local"] = False
         if freeze_all:
             spec_metadata["venvs"][venv_dir.name]["pip_freeze"] = pip_freeze_dict
         elif freeze:

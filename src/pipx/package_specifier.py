@@ -34,7 +34,7 @@ def _split_path_extras(package_spec: str) -> Tuple[str, str]:
         return (package_spec, "")
 
 
-def _parse_specifier(package_spec: str) -> ParsedPackage:
+def parse_specifier(package_spec: str) -> ParsedPackage:
     """Parse package_spec as would be given to pipx"""
     # NOTE: If package_spec is valid pypi name, pip will always treat it as a
     #       pypi package, not checking for local path.
@@ -96,7 +96,7 @@ def _extras_to_str(extras: Set):
 
 
 def package_is_local_path(package_spec: str) -> bool:
-    return _parse_specifier(package_spec).valid_local_path is not None
+    return parse_specifier(package_spec).valid_local_path is not None
 
 
 def parse_pip_freeze_specifier(package_spec: str) -> str:
@@ -105,7 +105,7 @@ def parse_pip_freeze_specifier(package_spec: str) -> str:
     if egg_re:
         return canonicalize_name(egg_re.group(1))
 
-    parsed_package = _parse_specifier(package_spec)
+    parsed_package = parse_specifier(package_spec)
     if parsed_package.valid_pep508 is None:
         raise PipxError("Internal Error: Cannot parse pip freeze specifier.")
     return parsed_package.valid_pep508.name
@@ -121,7 +121,7 @@ def parse_specifier_for_install(
     * Ensure --editable is removed for any package_spec not a local path
     * Convert local paths to absolute paths
     """
-    parsed_package = _parse_specifier(package_spec)
+    parsed_package = parse_specifier(package_spec)
     if parsed_package.valid_pep508 is not None:
         if parsed_package.valid_pep508.url:
             package_or_url = parsed_package.valid_pep508.url
@@ -171,7 +171,7 @@ def parse_specifier_for_metadata(package_spec: str) -> str:
     * Strip any markers (e.g. python_version > 3.4)
     * Convert local paths to absolute paths
     """
-    parsed_package = _parse_specifier(package_spec)
+    parsed_package = parse_specifier(package_spec)
     if parsed_package.valid_pep508 is not None:
         if parsed_package.valid_pep508.url:
             package_or_url = parsed_package.valid_pep508.url
