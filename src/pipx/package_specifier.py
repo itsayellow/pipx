@@ -95,10 +95,6 @@ def _extras_to_str(extras: Set):
         return ""
 
 
-def package_is_local_path(package_spec: str) -> bool:
-    return parse_specifier(package_spec).valid_local_path is not None
-
-
 def parse_pip_freeze_specifier(package_spec: str) -> str:
     package_spec = re.sub(r"^-e\s+", "", package_spec)
     egg_re = re.search(r"#egg=([^&]+)", package_spec)
