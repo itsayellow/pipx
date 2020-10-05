@@ -182,6 +182,8 @@ def run_pipx_command(args: argparse.Namespace):  # noqa: C901
                 include_dependencies=args.include_deps,
                 force=args.force,
             )
+    elif args.command == "uninject":
+        commands.uninject(venv_dir, args.dependencies, verbose=verbose)
     elif args.command == "upgrade":
         return commands.upgrade(
             venv_dir, pip_args, verbose, upgrading_all=False, force=args.force
@@ -313,6 +315,24 @@ def _add_inject(subparsers, autocomplete_list_of_installed_packages):
         "-f",
         action="store_true",
         help="Modify existing virtual environment and files in PIPX_BIN_DIR",
+    )
+    p.add_argument("--verbose", action="store_true")
+
+
+def _add_uninject(subparsers, autocomplete_list_of_installed_packages):
+    p = subparsers.add_parser(
+        "uninject",
+        help="Uninstall injected packages from an existing Virtual Environment",
+        description="Uninstalls injected packages from an existing pipx-managed virtual environment.",
+    )
+    p.add_argument(
+        "package",
+        help="Name of the existing pipx-managed Virtual Environment to inject into",
+    ).completer = autocomplete_list_of_installed_packages
+    p.add_argument(
+        "dependencies",
+        nargs="+",
+        help="the package names to uninject from the Virtual Environment",
     )
     p.add_argument("--verbose", action="store_true")
 
@@ -532,6 +552,7 @@ def get_command_parser():
 
     _add_install(subparsers)
     _add_inject(subparsers, autocomplete_list_of_installed_packages)
+    _add_uninject(subparsers, autocomplete_list_of_installed_packages)
     _add_upgrade(subparsers, autocomplete_list_of_installed_packages)
     _add_upgrade_all(subparsers)
     _add_uninstall(subparsers, autocomplete_list_of_installed_packages)

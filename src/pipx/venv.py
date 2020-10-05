@@ -170,6 +170,15 @@ class Venv:
             # but shared libs code does.
             self._upgrade_package_no_metadata("pip", pip_args)
 
+    def uninstall_package(self, package):
+        try:
+            with animate(f"uninstalling {package}", self.do_animation):
+                cmd = ["uninstall"] + [package]
+                self._run_pip(cmd)
+        except PipxError as e:
+            logging.info(e)
+            raise PipxError(f"Error uninstalling " f"{package}.")
+
     def install_package(
         self,
         package: str,

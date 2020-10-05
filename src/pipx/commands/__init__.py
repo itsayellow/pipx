@@ -5,9 +5,9 @@ from .list_packages import list_packages
 from .reinstall import reinstall_all
 from .run import run
 from .run_pip import run_pip
+from .uninject import uninject
 from .uninstall import uninstall, uninstall_all
 from .upgrade import upgrade, upgrade_all
-
 
 __all__ = [
     "upgrade",
@@ -15,6 +15,7 @@ __all__ = [
     "run",
     "install",
     "inject",
+    "uninject",
     "uninstall",
     "uninstall_all",
     "reinstall_all",
