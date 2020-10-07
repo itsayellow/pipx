@@ -41,7 +41,6 @@ def uninject(venv_dir: Path, dependencies: List[str], *, verbose: bool,) -> int:
 
     if not venv_dir.exists() or not next(venv_dir.iterdir()):
         raise PipxError(f"Virtual environment {venv_dir.name} does not exist.")
-        return 1
 
     venv = Venv(venv_dir, verbose=verbose)
 
