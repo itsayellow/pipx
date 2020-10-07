@@ -173,11 +173,14 @@ class Venv:
     def uninstall_package(self, package):
         try:
             with animate(f"uninstalling {package}", self.do_animation):
-                cmd = ["uninstall"] + [package]
+                cmd = ["uninstall", "-y"] + [package]
                 self._run_pip(cmd)
         except PipxError as e:
             logging.info(e)
             raise PipxError(f"Error uninstalling " f"{package}.")
+
+        self.pipx_metadata.injected_packages.pop(package)
+        self.pipx_metadata.write()
 
     def install_package(
         self,

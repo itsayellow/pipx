@@ -1,18 +1,35 @@
-import sys
+import logging
 from pathlib import Path
 from typing import List
 
+from packaging.utils import canonicalize_name
+
 from pipx.colors import bold
-from pipx.emojies import stars
+from pipx.emojies import hazard, stars
 from pipx.util import PipxError
 from pipx.venv import Venv
 
 
-def uninject_dep(venv: Venv, package_name: str, *, verbose: bool,) -> None:
-    venv.uninstall_package(package=package_name,)
+def uninject_dep(venv: Venv, package_name: str, *, verbose: bool,) -> bool:
+    package_name = canonicalize_name(package_name)
 
-    print(f"  injected package {bold(package_name)} into venv {bold(venv.root.name)}")
-    print(f"done! {stars}", file=sys.stderr)
+    if package_name == venv.pipx_metadata.main_package.package:
+        logging.warning(
+            f"{hazard}  {package_name} is the main package of {venv.root.name} "
+            "venv.  Use `pipx uninstall` to uninstall instead of uninject."
+        )
+        return False
+    if package_name not in venv.pipx_metadata.injected_packages:
+        logging.warning(
+            f"{hazard}  {package_name} is not in the {venv.root.name} venv.  Skipping."
+        )
+        return False
+
+    venv.uninstall_package(package=package_name,)
+    print(
+        f"uninjected package {bold(package_name)} from venv {bold(venv.root.name)} {stars}"
+    )
+    return True
 
 
 def uninject(venv_dir: Path, dependencies: List[str], *, verbose: bool,) -> int:
@@ -32,6 +49,11 @@ def uninject(venv_dir: Path, dependencies: List[str], *, verbose: bool,) -> int:
             f"    Please uninstall and install {venv_dir.name!r} manually to fix."
         )
 
+    all_success = True
     for dep in dependencies:
-        uninject_dep(venv, dep, verbose=verbose)
-    return 0
+        all_success &= uninject_dep(venv, dep, verbose=verbose)
+
+    if all_success:
+        return 0
+    else:
+        return 1
