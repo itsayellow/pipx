@@ -26,6 +26,10 @@ def uninject_dep(venv: Venv, package_name: str, *, verbose: bool,) -> bool:
         return False
 
     venv.uninstall_package(package=package_name,)
+
+    # TODO: remove symlinks (Unix, macOS) or copies (Windows) for removed
+    #       injected packages as in uninstall() if `--include_apps`, `--include_deps`
+
     print(
         f"uninjected package {bold(package_name)} from venv {bold(venv.root.name)} {stars}"
     )
