@@ -10,7 +10,7 @@ import logging
 import re
 import textwrap
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Set, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
@@ -54,7 +54,7 @@ def parse_specifier(package_spec: str) -> ParsedPackage:
         # valid PEP508 package specification
         valid_pep508 = package_req
 
-    # NOTE: packaging currently (2020-07-19) only does basic syntax checks on URL.
+    # packaging currently (2020-07-19) only does basic syntax checks on URL.
     #   Some examples of what it will not catch:
     #       - invalid RCS string (e.g. "gat+https://...")
     #       - non-existent scheme (e.g. "zzzzz://...")
@@ -87,13 +87,6 @@ def parse_specifier(package_spec: str) -> ParsedPackage:
         valid_url=valid_url,
         valid_local_path=valid_local_path,
     )
-
-
-def _extras_to_str(extras: Set):
-    if extras:
-        return "[" + ",".join(sorted(extras)) + "]"
-    else:
-        return ""
 
 
 def parse_pip_freeze_specifier(package_spec: str) -> str:
