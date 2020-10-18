@@ -2,7 +2,7 @@ from .ensure_path import ensure_pipx_paths
 from .inject import inject
 from .install import install
 from .list_packages import list_packages
-from .reinstall import reinstall_all
+from .reinstall import reinstall, reinstall_all
 from .run import run
 from .run_pip import run_pip
 from .uninject import uninject
@@ -18,6 +18,7 @@ __all__ = [
     "uninject",
     "uninstall",
     "uninstall_all",
+    "reinstall",
     "reinstall_all",
     "list_packages",
     "run_pip",
