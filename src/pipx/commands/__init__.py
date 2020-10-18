@@ -3,7 +3,7 @@ from .inject import inject
 from .install import install
 from .list_packages import list_packages
 from .pipx_spec import export_spec, install_spec
-from .reinstall import reinstall_all
+from .reinstall import reinstall, reinstall_all
 from .run import run
 from .run_pip import run_pip
 from .uninstall import uninstall, uninstall_all
@@ -17,6 +17,7 @@ __all__ = [
     "inject",
     "uninstall",
     "uninstall_all",
+    "reinstall",
     "reinstall_all",
     "list_packages",
     "run_pip",
