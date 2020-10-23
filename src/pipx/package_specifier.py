@@ -173,7 +173,7 @@ def parse_specifier_for_metadata(package_spec: str) -> str:
     * Strip any markers (e.g. python_version > 3.4)
     * Convert local paths to absolute paths
     """
-    parsed_package = _parse_specifier(package_spec)
+    parsed_package = parse_specifier(package_spec)
     package_or_url = _parsed_package_to_package_or_url(
         parsed_package, remove_version_specifiers=False
     )
