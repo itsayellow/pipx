@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Collection, Dict, List, Optional
+from typing import Any, Collection, Dict, List, Optional, Sequence
 
 from pipx.commands.inject import inject
 from pipx.commands.install import install
@@ -360,7 +360,7 @@ def _check_for_freeze_problems(venv: Venv, freeze_all: bool):
 def export_spec(
     out_filename: str,
     venv_container: VenvContainer,
-    skip_list: List[str],
+    skip_list: Sequence[str],
     include_list: Optional[List[str]],
     freeze: bool,
     freeze_all: bool,
