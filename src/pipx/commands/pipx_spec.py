@@ -5,7 +5,12 @@ from typing import Any, Collection, Dict, List, Optional, Sequence
 
 from pipx.commands.inject import inject
 from pipx.commands.install import install
-from pipx.constants import LOCAL_BIN_DIR
+from pipx.constants import (
+    EXIT_CODE_EXPORT_MISSING_METADATA,
+    EXIT_CODE_OK,
+    LOCAL_BIN_DIR,
+    ExitCode,
+)
 from pipx.emojies import sleep
 from pipx.package_specifier import (
     parse_pip_freeze_specifier,
@@ -52,7 +57,7 @@ def _package_info_modify_package_or_url_(
 
 
 def _venv_installable(
-    venv_metadata: PipxMetadata, freeze_data: Optional[Dict[str, Any]], verbose: bool,
+    venv_metadata: PipxMetadata, freeze_data: Optional[Dict[str, Any]], verbose: bool
 ) -> bool:
     """Return True if main, all injected packages, and freeze_data specifiers
     all have valid package specifiers.
@@ -82,7 +87,7 @@ def _venv_installable(
         # Most probably it is a local path that is currently not valid
         return False
 
-    for (_injected_name, injected_package,) in venv_metadata.injected_packages.items():
+    for (_injected_name, injected_package) in venv_metadata.injected_packages.items():
         if injected_package.package_or_url is None:
             return False
         try:
@@ -281,7 +286,7 @@ def install_spec(
     python: str,
     force: bool,
     verbose: bool,
-) -> int:
+) -> ExitCode:
     input_file = Path(in_filename)
     with open(input_file, "r") as pipx_spec_fh:
         spec_metadata = json.load(pipx_spec_fh)
@@ -301,7 +306,8 @@ def install_spec(
             verbose,
         )
 
-    return 0
+    # If no PipxError (Exit Code 1) assume everything went ok
+    return EXIT_CODE_OK
 
 
 def _venvs_with_missing_metadata(venv_dirs: List[Path],) -> List[str]:
@@ -315,8 +321,7 @@ def _venvs_with_missing_metadata(venv_dirs: List[Path],) -> List[str]:
 # TODO: this will not find local packages that are only dependencies and
 #       not in PipxMetadata
 def _local_package_path(package: str, venv_metadata: PipxMetadata) -> Optional[str]:
-    """Return path to package if it is editable, None otherwise.
-    """
+    """Return path to package if it is editable, None otherwise."""
     if package == venv_metadata.main_package.package:
         if venv_metadata.main_package.package_or_url is None:
             # TODO: handle this better
@@ -365,11 +370,11 @@ def export_spec(
     freeze: bool,
     freeze_all: bool,
     verbose: bool,
-) -> int:
+) -> ExitCode:
     dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
     if not dirs:
         print(f"nothing has been installed with pipx {sleep}")
-        return 0
+        return EXIT_CODE_OK
 
     # TODO: remove this?
     venv_container.verify_shared_libs()
@@ -394,7 +399,7 @@ def export_spec(
         print(
             "    Please uninstall and install each of these venvs, or reinstall-all to fix."
         )
-        return 1
+        return EXIT_CODE_EXPORT_MISSING_METADATA
 
     for venv_dir in venv_dirs_export:
         spec_metadata["venvs"][venv_dir.name] = {}
@@ -429,4 +434,5 @@ def export_spec(
             cls=JsonEncoderHandlesPath,
         )
 
-    return 0
+    # If no PipxError (Exit Code 1) assume everything went ok
+    return EXIT_CODE_OK
