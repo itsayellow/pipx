@@ -201,7 +201,7 @@ def parse_specifier_for_upgrade(package_spec: str) -> str:
 
 
 def get_extras(package_spec: str) -> Set[str]:
-    parsed_package = _parse_specifier(package_spec)
+    parsed_package = parse_specifier(package_spec)
     if parsed_package.valid_pep508 and parsed_package.valid_pep508.extras is not None:
         return parsed_package.valid_pep508.extras
     elif parsed_package.valid_local_path:
