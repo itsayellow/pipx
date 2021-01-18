@@ -23,6 +23,8 @@ except ImportError:
 
 
 # TODO: what about injected?
+# TODO: how to handle unknown versions
+#       (URL, or invalid version, or unable to fetch latest version)
 def at_max_version(venv_dir: Path) -> bool:
     venv = Venv(venv_dir)
     main_package_metadata = venv.package_metadata[venv.main_package_name]
@@ -48,13 +50,19 @@ def at_max_version(venv_dir: Path) -> bool:
     if (
         parsed_specifier.valid_url
         or parsed_specifier.valid_local_path
-        or parsed_specifier.valid_pep508.url is not None
+        or (
+            parsed_specifier.valid_pep508 is not None
+            and parsed_specifier.valid_pep508.url is not None
+        )
     ):
         return False
     current_version = Version(
         venv.package_metadata[venv.main_package_name].package_version
     )
     _, latest_version = get_latest_version(venv.main_package_name)
+    if latest_version is None:
+        return False
+
     return current_version >= latest_version
 
 
