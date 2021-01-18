@@ -59,8 +59,16 @@ def at_max_version(venv_dir: Path) -> bool:
     current_version = Version(
         venv.package_metadata[venv.main_package_name].package_version
     )
-    _, latest_version = get_latest_version(venv.main_package_name)
+    pip_args = venv.package_metadata[venv.main_package_name].pip_args
+    if "--index-url" in pip_args:
+        custom_index_url = pip_args[pip_args.index("--index_url") + 1]
+        print("Using custom index-url: {custom_index_url}")
+        latest_version = get_latest_version(venv.main_package_name, custom_index_url)
+    else:
+        latest_version = get_latest_version(venv.main_package_name)
+
     if latest_version is None:
+        # Unknown latest_version
         return False
 
     return current_version >= latest_version
