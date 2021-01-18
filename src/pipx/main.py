@@ -229,7 +229,9 @@ def run_pipx_command(args: argparse.Namespace) -> ExitCode:  # noqa: C901
             force=args.force,
         )
     elif args.command == "list":
-        return commands.list_packages(venv_container, args.include_injected)
+        return commands.list_packages(
+            venv_container, args.include_injected, args.outdated
+        )
     elif args.command == "uninstall":
         return commands.uninstall(venv_dir, constants.LOCAL_BIN_DIR, verbose)
     elif args.command == "uninstall-all":
@@ -485,6 +487,12 @@ def _add_list(subparsers) -> None:
         "--include-injected",
         action="store_true",
         help="Show packages injected into the main app's environment",
+    )
+    p.add_argument(
+        "--outdated",
+        "-o",
+        action="store_true",
+        help="Only list outdated main packages",
     )
     p.add_argument("--verbose", action="store_true")
 
