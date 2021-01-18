@@ -2,14 +2,14 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, Collection, Optional
 
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
+from pypi_simple import PyPISimple  # type: ignore
 
 from pipx import constants
 from pipx.colors import bold
 from pipx.commands.common import VenvProblems, get_package_summary
 from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojies import sleep
-from pipx.index_simple import get_latest_version
 from pipx.package_specifier import _parse_specifier
 from pipx.util import PipxError
 from pipx.venv import Venv, VenvContainer
@@ -20,6 +20,35 @@ try:
     from multiprocessing import Pool
 except ImportError:
     Pool = None
+
+
+# TODO: handle git+ URLs
+def get_latest_version(
+    package_name: str, index_url: str = "https://pypi.org/simple/"
+) -> Optional[Version]:
+    """Returns None if latest version cannot be determined."""
+    package_latest_version: Optional[Version]
+
+    with PyPISimple(index_url) as client:
+        requests_page = client.get_project_page(package_name)
+
+    if requests_page is None:
+        return None
+
+    # TODO: is last package in packages guaranteed to be latest version?
+
+    package_latest_version_str = requests_page.packages[-1].version
+
+    if package_latest_version_str is None:
+        return None
+
+    try:
+        package_latest_version = Version(package_latest_version_str)
+    except InvalidVersion:
+        print("Latest Version is invalid: {package_latest_version_str}")
+        package_latest_version = None
+
+    return package_latest_version
 
 
 # TODO: what about injected?
@@ -80,13 +109,14 @@ def list_packages(
     """Returns pipx exit code."""
     dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
 
+    if not dirs:
+        print(f"nothing has been installed with pipx {sleep}")
+        return EXIT_CODE_OK
+
     if only_outdated:
         dirs = [d for d in dirs if not at_max_version(d)]
 
-    if not dirs and not only_outdated:
-        print(f"nothing has been installed with pipx {sleep}")
-        return EXIT_CODE_OK
-    elif not dirs and only_outdated:
+    if not dirs and only_outdated:
         print(f"No out-of-date pipx packages {sleep}")
         # TODO: what exit code?
         return EXIT_CODE_OK
