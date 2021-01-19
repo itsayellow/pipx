@@ -169,7 +169,6 @@ def list_command(
 
         if not dirs_version_unknown and not dirs_version_outdated:
             print(f"No out-of-date pipx packages {sleep}")
-            # TODO: what exit code?
             return EXIT_CODE_OK
 
         print("\nOutdated packages:")
