@@ -124,7 +124,11 @@ def list_command(
     print(f"venvs are in {bold(str(venv_container))}")
     print(f"apps are exposed on your $PATH at {bold(str(constants.LOCAL_BIN_DIR))}")
 
+    venv_container.verify_shared_libs()
+    all_venv_problems = VenvProblems()
+
     if only_outdated:
+        # TODO: check injected packages also if include_injected
         dirs_version_unknown = []
         dirs_version_outdated = []
         for venv_dir in dirs:
@@ -139,29 +143,32 @@ def list_command(
                 dirs_version_unknown.append(venv_dir)
             elif latest_version > current_version:
                 dirs_version_outdated.append(venv_dir)
+
         if not dirs_version_unknown and not dirs_version_outdated:
             print(f"No out-of-date pipx packages {sleep}")
             # TODO: what exit code?
             return EXIT_CODE_OK
 
-    venv_container.verify_shared_libs()
-
-    all_venv_problems = VenvProblems()
-    if not only_outdated:
-        all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
-    else:
         print("\nOutdated packages:")
         if not dirs_version_outdated:
-            print("    No verified out-of-date packages have been installed with pipx")
+            print("    No verified out-of-date packages")
         else:
             all_venv_problems = list_packages(
                 dirs_version_outdated, all_venv_problems, include_injected
             )
+        # NOTE: pip currently only checks pypi, and can't find packages
+        #       installed from URL, effectively ignoring them for "outdated"
+        #       purposes.  By listing unknown latest versions we are being more
+        #       conservative.  pip doesn't list these at all
+        # To actually verify version of URL-based packages, we'd probably
+        #   have to install them to a temp directory to verify their version
         if dirs_version_unknown:
             print("\nPackages with unknown latest version:")
             all_venv_problems = list_packages(
                 dirs_version_unknown, all_venv_problems, include_injected
             )
+    else:
+        all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
 
     if all_venv_problems.bad_venv_name:
         print(
