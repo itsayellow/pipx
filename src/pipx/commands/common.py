@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from shutil import which
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import userpath  # type: ignore
 from packaging.utils import canonicalize_name
@@ -161,6 +161,7 @@ def get_package_summary(
     package: str = None,
     new_install: bool = False,
     include_injected: bool = False,
+    extra_info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, VenvProblems]:
     venv = Venv(venv_dir)
     python_path = venv.python_path.resolve()
@@ -185,6 +186,15 @@ def get_package_summary(
         )
 
     package_metadata = venv.package_metadata[package]
+
+    if extra_info is not None:
+        latest_version = (
+            extra_info.get(str(venv_dir), {}).get(package, {}).get("latest_version", "")
+        )
+        if latest_version is None:
+            latest_version = ""
+    else:
+        latest_version = ""
 
     if package_metadata.package_version is None:
         return (
@@ -220,6 +230,7 @@ def get_package_summary(
             unavailable_binary_names,
             venv.pipx_metadata.injected_packages if include_injected else None,
             suffix=package_metadata.suffix,
+            latest_version=latest_version,
         ),
         VenvProblems(),
     )
@@ -259,12 +270,15 @@ def _get_list_output(
     unavailable_binary_names: List[str],
     injected_packages: Optional[Dict[str, PackageInfo]] = None,
     suffix: str = "",
+    latest_version: str = "",
 ) -> str:
     output = []
+
+    latest = f" (LATEST: {bold(latest_version)})" if latest_version else ""
     suffix = f" ({bold(shlex.quote(package + suffix))})" if suffix else ""
     output.append(
         f"  {'installed' if new_install else ''} package {bold(shlex.quote(package))}"
-        f" {bold(package_version)}{suffix}, {python_version}"
+        f" {bold(package_version)}{suffix}{latest}, {python_version}"
     )
 
     if not python_path.exists():

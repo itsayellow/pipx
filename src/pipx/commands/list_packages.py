@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path
-from typing import Callable, Collection, Optional
+from typing import Any, Callable, Collection, Dict, Optional
 
 from packaging.version import InvalidVersion, Version
 from pypi_simple import PyPISimple  # type: ignore
@@ -89,12 +89,22 @@ def get_latest_version(package_metadata) -> Optional[Version]:
     return latest_version
 
 
-def list_packages(dirs, all_venv_problems, include_injected):
+def list_packages(
+    dirs: Collection[Path],
+    all_venv_problems: VenvProblems,
+    include_injected: bool,
+    extra_info: Optional[Dict[str, Any]] = None,
+) -> VenvProblems:
     if Pool:
         p = Pool()
         try:
             for package_summary, venv_problems in p.map(
-                partial(get_package_summary, include_injected=include_injected), dirs
+                partial(
+                    get_package_summary,
+                    include_injected=include_injected,
+                    extra_info=extra_info,
+                ),
+                dirs,
             ):
                 print(package_summary)
                 all_venv_problems.or_(venv_problems)
@@ -103,7 +113,12 @@ def list_packages(dirs, all_venv_problems, include_injected):
             p.join()
     else:
         for package_summary, venv_problems in map(
-            partial(get_package_summary, include_injected=include_injected), dirs
+            partial(
+                get_package_summary,
+                include_injected=include_injected,
+                extra_info=extra_info,
+            ),
+            dirs,
         ):
             print(package_summary)
             all_venv_problems.or_(venv_problems)
@@ -131,13 +146,21 @@ def list_command(
         # TODO: check injected packages also if include_injected
         dirs_version_unknown = []
         dirs_version_outdated = []
+        extra_info: Dict[str, Any] = {}
         for venv_dir in dirs:
             venv = Venv(venv_dir)
+
+            extra_info[str(venv_dir)] = {}
+
             current_version = Version(
                 venv.package_metadata[venv.main_package_name].package_version
             )
             latest_version = get_latest_version(
                 venv.package_metadata[venv.main_package_name]
+            )
+            extra_info[str(venv_dir)][venv.main_package_name] = {}
+            extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
+                str(latest_version) if latest_version is not None else None
             )
             if latest_version is None:
                 dirs_version_unknown.append(venv_dir)
@@ -154,7 +177,7 @@ def list_command(
             print("    No verified out-of-date packages")
         else:
             all_venv_problems = list_packages(
-                dirs_version_outdated, all_venv_problems, include_injected
+                dirs_version_outdated, all_venv_problems, include_injected, extra_info
             )
         # NOTE: pip currently only checks pypi, and can't find packages
         #       installed from URL, effectively ignoring them for "outdated"
@@ -165,7 +188,7 @@ def list_command(
         if dirs_version_unknown:
             print("\nPackages with unknown latest version:")
             all_venv_problems = list_packages(
-                dirs_version_unknown, all_venv_problems, include_injected
+                dirs_version_unknown, all_venv_problems, include_injected, extra_info
             )
     else:
         all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
