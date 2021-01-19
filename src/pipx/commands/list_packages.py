@@ -174,7 +174,7 @@ def list_command(
 
         print("\nOutdated packages:")
         if not dirs_version_outdated:
-            print("    No verified out-of-date packages")
+            print("    No verified-out-of-date packages")
         else:
             all_venv_problems = list_packages(
                 dirs_version_outdated, all_venv_problems, include_injected, extra_info
