@@ -23,7 +23,7 @@ except ImportError:
 
 
 # TODO: handle git+ URLs
-def get_latest_version(
+def latest_version_from_index(
     package_name: str, index_url: str = "https://pypi.org/simple/"
 ) -> Optional[Version]:
     """Returns None if latest version cannot be determined."""
@@ -51,31 +51,22 @@ def get_latest_version(
     return package_latest_version
 
 
-# TODO: what about injected?
-# TODO: how to handle unknown versions
-#       (URL, or invalid version, or unable to fetch latest version)
-def at_max_version(venv_dir: Path) -> bool:
-    venv = Venv(venv_dir)
-    main_package_metadata = venv.package_metadata[venv.main_package_name]
-    if main_package_metadata.package_or_url is None:
+def get_latest_version(package_metadata) -> Optional[Version]:
+    if package_metadata.package_or_url is None:
         # This should never happen, but package_or_url is type
         #   Optional[str] so mypy thinks it could be None
         raise PipxError("Internal Error with pipx metadata.")
-    parsed_specifier = _parse_specifier(main_package_metadata.package_or_url)
-    print(f"venv.main_package_name={venv.main_package_name}")
-    print(
-        f"    main_package_metadata.package_or_url={main_package_metadata.package_or_url}"
-    )
-    print(
-        f"    main_package_metadata.package_version={main_package_metadata.package_version}"
-    )
-    print(f"    parsed_specifier.valid_pep508={parsed_specifier.valid_pep508}")
-    print(f"    parsed_specifier.valid_url={parsed_specifier.valid_url}")
-    print(f"    parsed_specifier.valid_local_path={parsed_specifier.valid_local_path}")
-    if parsed_specifier.valid_pep508 is not None:
-        print(
-            f"    parsed_specifier.valid_pep508.url={parsed_specifier.valid_pep508.url}"
-        )
+    parsed_specifier = _parse_specifier(package_metadata.package_or_url)
+    # print(f"package_metadata.package={package_metadata.package}")
+    # print(f"    package_metadata.package_or_url={package_metadata.package_or_url}")
+    # print(f"    package_metadata.package_version={package_metadata.package_version}")
+    # print(f"    parsed_specifier.valid_pep508={parsed_specifier.valid_pep508}")
+    # print(f"    parsed_specifier.valid_url={parsed_specifier.valid_url}")
+    # print(f"    parsed_specifier.valid_local_path={parsed_specifier.valid_local_path}")
+    # if parsed_specifier.valid_pep508 is not None:
+    #     print(
+    #         f"    parsed_specifier.valid_pep508.url={parsed_specifier.valid_pep508.url}"
+    #     )
     if (
         parsed_specifier.valid_url
         or parsed_specifier.valid_local_path
@@ -84,49 +75,21 @@ def at_max_version(venv_dir: Path) -> bool:
             and parsed_specifier.valid_pep508.url is not None
         )
     ):
-        return False
-    current_version = Version(
-        venv.package_metadata[venv.main_package_name].package_version
-    )
-    pip_args = venv.package_metadata[venv.main_package_name].pip_args
+        return None
+    pip_args = package_metadata.pip_args
     if "--index-url" in pip_args:
         custom_index_url = pip_args[pip_args.index("--index_url") + 1]
         print("Using custom index-url: {custom_index_url}")
-        latest_version = get_latest_version(venv.main_package_name, custom_index_url)
+        latest_version = latest_version_from_index(
+            package_metadata.package, custom_index_url
+        )
     else:
-        latest_version = get_latest_version(venv.main_package_name)
+        latest_version = latest_version_from_index(package_metadata.package)
 
-    if latest_version is None:
-        # Unknown latest_version
-        return False
-
-    return current_version >= latest_version
+    return latest_version
 
 
-def list_packages(
-    venv_container: VenvContainer, include_injected: bool, only_outdated: bool
-) -> ExitCode:
-    """Returns pipx exit code."""
-    dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
-
-    if not dirs:
-        print(f"nothing has been installed with pipx {sleep}")
-        return EXIT_CODE_OK
-
-    if only_outdated:
-        dirs = [d for d in dirs if not at_max_version(d)]
-
-    if not dirs and only_outdated:
-        print(f"No out-of-date pipx packages {sleep}")
-        # TODO: what exit code?
-        return EXIT_CODE_OK
-
-    print(f"venvs are in {bold(str(venv_container))}")
-    print(f"apps are exposed on your $PATH at {bold(str(constants.LOCAL_BIN_DIR))}")
-
-    venv_container.verify_shared_libs()
-
-    all_venv_problems = VenvProblems()
+def list_packages(dirs, all_venv_problems, include_injected):
     if Pool:
         p = Pool()
         try:
@@ -144,6 +107,61 @@ def list_packages(
         ):
             print(package_summary)
             all_venv_problems.or_(venv_problems)
+
+    return all_venv_problems
+
+
+def list_command(
+    venv_container: VenvContainer, include_injected: bool, only_outdated: bool
+) -> ExitCode:
+    """Returns pipx exit code."""
+    dirs: Collection[Path] = sorted(venv_container.iter_venv_dirs())
+
+    if not dirs:
+        print(f"nothing has been installed with pipx {sleep}")
+        return EXIT_CODE_OK
+
+    print(f"venvs are in {bold(str(venv_container))}")
+    print(f"apps are exposed on your $PATH at {bold(str(constants.LOCAL_BIN_DIR))}")
+
+    if only_outdated:
+        dirs_version_unknown = []
+        dirs_version_outdated = []
+        for venv_dir in dirs:
+            venv = Venv(venv_dir)
+            current_version = Version(
+                venv.package_metadata[venv.main_package_name].package_version
+            )
+            latest_version = get_latest_version(
+                venv.package_metadata[venv.main_package_name]
+            )
+            if latest_version is None:
+                dirs_version_unknown.append(venv_dir)
+            elif latest_version > current_version:
+                dirs_version_outdated.append(venv_dir)
+        if not dirs_version_unknown and not dirs_version_outdated:
+            print(f"No out-of-date pipx packages {sleep}")
+            # TODO: what exit code?
+            return EXIT_CODE_OK
+
+    venv_container.verify_shared_libs()
+
+    all_venv_problems = VenvProblems()
+    if not only_outdated:
+        all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
+    else:
+        print("\nOutdated packages:")
+        if not dirs_version_outdated:
+            print("    No verified out-of-date packages have been installed with pipx")
+        else:
+            all_venv_problems = list_packages(
+                dirs_version_outdated, all_venv_problems, include_injected
+            )
+        if dirs_version_unknown:
+            print("\nPackages with unknown latest version:")
+            all_venv_problems = list_packages(
+                dirs_version_unknown, all_venv_problems, include_injected
+            )
 
     if all_venv_problems.bad_venv_name:
         print(

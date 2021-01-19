@@ -1,7 +1,7 @@
 from pipx.commands.ensure_path import ensure_pipx_paths
 from pipx.commands.inject import inject
 from pipx.commands.install import install
-from pipx.commands.list_packages import list_packages
+from pipx.commands.list_packages import list_command
 from pipx.commands.reinstall import reinstall, reinstall_all
 from pipx.commands.run import run
 from pipx.commands.run_pip import run_pip
@@ -18,7 +18,7 @@ __all__ = [
     "uninstall_all",
     "reinstall",
     "reinstall_all",
-    "list_packages",
+    "list_command",
     "run_pip",
     "ensure_pipx_paths",
 ]

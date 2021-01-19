@@ -229,7 +229,7 @@ def run_pipx_command(args: argparse.Namespace) -> ExitCode:  # noqa: C901
             force=args.force,
         )
     elif args.command == "list":
-        return commands.list_packages(
+        return commands.list_command(
             venv_container, args.include_injected, args.outdated
         )
     elif args.command == "uninstall":
