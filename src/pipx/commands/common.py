@@ -278,7 +278,7 @@ def _get_list_output(
     suffix = f" ({bold(shlex.quote(package + suffix))})" if suffix else ""
     output.append(
         f"  {'installed' if new_install else ''} package {bold(shlex.quote(package))}"
-        f" {bold(package_version)}{suffix}{latest}, {python_version}"
+        f" {bold(package_version)}{latest}{suffix}, {python_version}"
     )
 
     if not python_path.exists():
