@@ -167,17 +167,6 @@ def list_command(
             elif latest_version > current_version:
                 dirs_version_outdated.append(venv_dir)
 
-        if not dirs_version_unknown and not dirs_version_outdated:
-            print(f"No out-of-date pipx packages {sleep}")
-            return EXIT_CODE_OK
-
-        print("\nOutdated packages:")
-        if not dirs_version_outdated:
-            print("    No verified-out-of-date packages")
-        else:
-            all_venv_problems = list_packages(
-                dirs_version_outdated, all_venv_problems, include_injected, extra_info
-            )
         # NOTE: pip currently only checks pypi, and can't find packages
         #       installed from URL, effectively ignoring them for "outdated"
         #       purposes.  By listing unknown latest versions we are being more
@@ -185,10 +174,20 @@ def list_command(
         # To actually verify version of URL-based packages, we'd probably
         #   have to install them to a temp directory to verify their version
         if dirs_version_unknown:
-            print("\nPackages with unknown latest version:")
-            all_venv_problems = list_packages(
-                dirs_version_unknown, all_venv_problems, include_injected, extra_info
-            )
+            # TODO: this may just be annoying (put it in help instead?)
+            print("\n(Ignoring git- or URL-based packages.)")
+        else:
+            print("\n")
+
+        if not dirs_version_outdated:
+            print(f"No out-of-date pipx packages {sleep}")
+            return EXIT_CODE_OK
+
+        print("Outdated packages:")
+        all_venv_problems = list_packages(
+            dirs_version_outdated, all_venv_problems, include_injected, extra_info
+        )
+
     else:
         all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
 
