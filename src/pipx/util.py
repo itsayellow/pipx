@@ -237,4 +237,6 @@ def get_pip_config(python: str) -> Dict[str, List[str]]:
                 )
                 config_dict[config_re.group(1)] = config_value
 
+    # TODO: handle precedence here?
+
     return config_dict
