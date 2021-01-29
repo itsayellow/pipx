@@ -77,6 +77,8 @@ def get_latest_version(package_metadata) -> Optional[Version]:
     ):
         return None
     pip_args = package_metadata.pip_args
+    # TODO: check PIP_ environment variables
+    # TODO: check for --extra-index-url
     if "--index-url" in pip_args:
         custom_index_url = pip_args[pip_args.index("--index_url") + 1]
         print("Using custom index-url: {custom_index_url}")
