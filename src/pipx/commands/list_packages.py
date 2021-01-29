@@ -31,9 +31,10 @@ def latest_version_from_index(
     """Returns None if latest version cannot be determined."""
     package_latest_version: Optional[Version]
 
+    print(f"PyPISimple using: {index_url}")
     time_start = time.time()
     with PyPISimple(index_url) as client:
-        requests_page = client.get_project_page(package_name)
+        requests_page = client.get_project_page(package_name, timeout=10.0)
     print(f"PyPISimple elapsed: {time.time()-time_start}")
 
     if requests_page is None:
@@ -91,8 +92,7 @@ def get_latest_version(
     elif "global.index-url" in pip_config:
         index_urls.append(pip_config["global.index-url"][0])
 
-    # TODO: check if this is how --extra-index-url shows up in pip_args
-    #       also, can there be more than one there?
+    # TODO: can there be more than one --extra-index-url?
     if "--extra-index-url" in pip_args:
         index_urls.append(pip_args[pip_args.index("--extra-index_url") + 1])
     elif ":env:.extra-index-url" in pip_config:
