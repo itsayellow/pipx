@@ -5,6 +5,7 @@ from typing import Any, Callable, Collection, Dict, Optional
 
 from packaging.version import InvalidVersion, Version
 from pypi_simple import PyPISimple  # type: ignore
+from requests.exceptions import ReadTimeout
 
 from pipx import constants
 from pipx.colors import bold
@@ -33,8 +34,11 @@ def latest_version_from_index(
 
     print(f"PyPISimple using: {index_url}")
     time_start = time.time()
-    with PyPISimple(index_url) as client:
-        requests_page = client.get_project_page(package_name, timeout=10.0)
+    try:
+        with PyPISimple(index_url) as client:
+            requests_page = client.get_project_page(package_name, timeout=10.0)
+    except ReadTimeout:
+        return None
     print(f"PyPISimple elapsed: {time.time()-time_start}")
 
     if requests_page is None:
@@ -62,16 +66,6 @@ def get_latest_version(
         #   Optional[str] so mypy thinks it could be None
         raise PipxError("Internal Error with pipx metadata.")
     parsed_specifier = _parse_specifier(package_metadata.package_or_url)
-    # print(f"package_metadata.package={package_metadata.package}")
-    # print(f"    package_metadata.package_or_url={package_metadata.package_or_url}")
-    # print(f"    package_metadata.package_version={package_metadata.package_version}")
-    # print(f"    parsed_specifier.valid_pep508={parsed_specifier.valid_pep508}")
-    # print(f"    parsed_specifier.valid_url={parsed_specifier.valid_url}")
-    # print(f"    parsed_specifier.valid_local_path={parsed_specifier.valid_local_path}")
-    # if parsed_specifier.valid_pep508 is not None:
-    #     print(
-    #         f"    parsed_specifier.valid_pep508.url={parsed_specifier.valid_pep508.url}"
-    #     )
     if (
         parsed_specifier.valid_url
         or parsed_specifier.valid_local_path
@@ -177,11 +171,9 @@ def list_command(
                 venv.package_metadata[venv.main_package_name].package_version
             )
             print(f"venv.main_package_name = {venv.main_package_name}")
-            time_start = time.time()
             latest_version = get_latest_version(
                 venv.package_metadata[venv.main_package_name], pip_config
             )
-            print(f"get_latest_version elapsed: {time.time()-time_start}")
             extra_info[str(venv_dir)][venv.main_package_name] = {}
             extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
                 str(latest_version) if latest_version is not None else None
