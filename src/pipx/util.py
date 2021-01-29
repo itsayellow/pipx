@@ -6,11 +6,10 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Sequence, Tuple, Union
+from typing import Dict, List, NoReturn, Optional, Sequence, Tuple, Union
 
 from pipx.animate import show_cursor
 from pipx.constants import WINDOWS
-from pipx.interpreter import DEFAULT_PYTHON
 
 logger = logging.getLogger(__name__)
 
@@ -225,17 +224,17 @@ def pipx_wrap(
         )
 
 
-def get_pip_config() -> Dict[str, Any]:
+def get_pip_config(python: str) -> Dict[str, List[str]]:
     config_dict = {}
-    config_list_proc = run_subprocess([DEFAULT_PYTHON, "-m", "pip", "config", "list"])
+    config_list_proc = run_subprocess([python, "-m", "pip", "config", "list"])
     if config_list_proc.returncode == 0:
-        for line in config_list_proc.stdout:
+        for line in config_list_proc.stdout.split():
+            print(f"line = {line}")
             config_re = re.search(r"([^=]+)=([^=]+)", line)
             if config_re:
-                config_dict[config_re.group(1)] = config_re.group(2).strip("'")
-
-    # TODO: Give env var precedence over other config
-    # for key in config_dict:
-    #     pass
+                config_value = (
+                    config_re.group(2).strip("'").replace("\\n", "\n").split()
+                )
+                config_dict[config_re.group(1)] = config_value
 
     return config_dict
