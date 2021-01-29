@@ -1,8 +1,10 @@
+import json
 import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Collection, Dict, Optional
 
+from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 from pypi_simple import PyPISimple  # type: ignore
 from requests.exceptions import ReadTimeout
@@ -14,7 +16,7 @@ from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojies import sleep
 from pipx.interpreter import DEFAULT_PYTHON
 from pipx.package_specifier import _parse_specifier
-from pipx.util import PipxError, get_pip_config
+from pipx.util import PipxError, get_pip_config, run_subprocess
 from pipx.venv import Venv, VenvContainer
 
 Pool: Optional[Callable]
@@ -58,6 +60,7 @@ def latest_version_from_index(
 
 
 # TODO: type package_metadata
+# Typically takes ~0.06s
 def get_latest_version(
     package_metadata, pip_config: Dict[str, Any]
 ) -> Optional[Version]:
@@ -94,11 +97,49 @@ def get_latest_version(
     elif "global.extra-index-url" in pip_config:
         index_urls.extend(pip_config["global.extra-index-url"])
 
+    # TODO: trusted-host? proxy? cert? client-cert?
+
     print(f"index_urls = {index_urls}")
     # latest_version = latest_version_from_index(package_metadata.package, index_url)
     latest_version = latest_version_from_index(package_metadata.package)
 
     return latest_version
+
+
+# Typically takes ~2.00s
+def get_latest_version2(package_metadata, python_path: Path) -> Optional[Version]:
+    if package_metadata.package_or_url is None:
+        # This should never happen, but package_or_url is type
+        #   Optional[str] so mypy thinks it could be None
+        raise PipxError("Internal Error with pipx metadata.")
+
+    package_name = package_metadata.package
+
+    parsed_specifier = _parse_specifier(package_metadata.package_or_url)
+    if (
+        parsed_specifier.valid_url
+        or parsed_specifier.valid_local_path
+        or (
+            parsed_specifier.valid_pep508 is not None
+            and parsed_specifier.valid_pep508.url is not None
+        )
+    ):
+        return None
+
+    pip_list_subprocess = run_subprocess(
+        [python_path, "-m", "pip", "list", "--outdated", "--format", "json"]
+    )
+
+    pip_list = json.loads(pip_list_subprocess.stdout)
+    for package_info in pip_list:
+        if canonicalize_name(package_info["name"]) == package_name:
+            try:
+                latest_version = Version(package_info["latest_version"])
+            except InvalidVersion:
+                return None
+            return latest_version
+
+    return None
 
 
 def list_packages(
@@ -170,10 +211,20 @@ def list_command(
             current_version = Version(
                 venv.package_metadata[venv.main_package_name].package_version
             )
-            print(f"venv.main_package_name = {venv.main_package_name}")
+
+            # print(f"venv.main_package_name = {venv.main_package_name}")
+            # start_time = time.time()
+            # latest_version = get_latest_version2(
+            #     venv.package_metadata[venv.main_package_name], venv.python_path
+            # )
+            # print(f"get_latest_version2: {time.time()-start_time:.3f}s")
+
+            start_time = time.time()
             latest_version = get_latest_version(
                 venv.package_metadata[venv.main_package_name], pip_config
             )
+            print(f"get_latest_version: {time.time()-start_time:.3f}s")
+
             extra_info[str(venv_dir)][venv.main_package_name] = {}
             extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
                 str(latest_version) if latest_version is not None else None
