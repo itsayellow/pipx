@@ -39,20 +39,17 @@ def latest_version_from_index(
     if requests_page is None:
         return None
 
-    # TODO: is last package in packages guaranteed to be latest version?
+    package_versions = []
+    for package_instance in requests_page.packages:
+        try:
+            package_versions.append(Version(package_instance.version))
+        except InvalidVersion:
+            pass
 
-    package_latest_version_str = requests_page.packages[-1].version
-
-    if package_latest_version_str is None:
+    if package_versions:
+        return max(package_versions)
+    else:
         return None
-
-    try:
-        package_latest_version = Version(package_latest_version_str)
-    except InvalidVersion:
-        print("Latest Version is invalid: {package_latest_version_str}")
-        package_latest_version = None
-
-    return package_latest_version
 
 
 # TODO: type package_metadata
