@@ -12,7 +12,7 @@ from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojies import sleep
 from pipx.interpreter import DEFAULT_PYTHON
 from pipx.package_specifier import _parse_specifier
-from pipx.pipx_metadata import PackageInfo
+from pipx.pipx_metadata_file import PackageInfo
 from pipx.simple_interface import (
     get_indexes,
     indexes_from_pip_config,
@@ -37,9 +37,8 @@ def get_latest_version(
     pip_config_extra_index_urls: List[str],
 ) -> Optional[Version]:
 
-    if package_info.package_or_url is None:
-        # This should never happen, but package_or_url is type
-        #   Optional[str] so mypy thinks it could be None
+    if package_info.package_or_url is None or package_info.package is None:
+        # This should never happen, but check these Optional variables
         raise PipxError("Internal Error with pipx metadata.")
 
     parsed_specifier = _parse_specifier(package_info.package_or_url)
