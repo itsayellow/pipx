@@ -32,18 +32,21 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# TODO: add logging messages
-# Typically takes ~0.06s
 def get_latest_version(
     package_info: PackageInfo,
     pip_config_index_url: str,
     pip_config_extra_index_urls: List[str],
 ) -> Optional[Version]:
-
     if package_info.package_or_url is None or package_info.package is None:
         # This should never happen, but check these Optional variables
         raise PipxError("Internal Error with pipx metadata.")
 
+    # Specifically ignore VCS- or URL-based packages.
+    #   pip currently only checks indexes, and can't find URL-based
+    #       packages there, effectively ignoring them for "outdated" purposes.
+    #   To actually verify version of URL-based packages, we'd probably
+    #       have to install them to a temp directory to verify their version
+    #       which would take too long.
     parsed_specifier = _parse_specifier(package_info.package_or_url)
     if (
         parsed_specifier.valid_url
