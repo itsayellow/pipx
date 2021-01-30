@@ -225,6 +225,7 @@ def pipx_wrap(
 
 
 def get_pip_config(python: str) -> Dict[str, List[str]]:
+    """Takes ~250ms."""
     config_dict = {}
     config_list_proc = run_subprocess([python, "-m", "pip", "config", "list"])
     if config_list_proc.returncode == 0:
@@ -236,7 +237,5 @@ def get_pip_config(python: str) -> Dict[str, List[str]]:
                     config_re.group(2).strip("'").replace(r"\\n", "\n").split()
                 )
                 config_dict[config_re.group(1)] = config_value
-
-    # TODO: handle precedence here? (env -> global -> user)
 
     return config_dict
