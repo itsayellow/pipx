@@ -150,12 +150,6 @@ def list_outdated_packages(dirs: Collection[Path], include_injected: bool):
         elif latest_version > current_version:
             dirs_version_outdated.append(venv_dir)
 
-    # pip currently only checks indexes, and can't find URL-based
-    #   packages there, effectively ignoring them for "outdated" purposes.
-    # To actually verify version of URL-based packages, we'd probably
-    #   have to install them to a temp directory to verify their version
-    #   which would take too long.
-
     if not dirs_version_outdated:
         print(f"No out-of-date pipx packages {sleep}")
         return EXIT_CODE_OK
