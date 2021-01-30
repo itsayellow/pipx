@@ -154,9 +154,6 @@ def list_outdated_packages(dirs: Collection[Path], include_injected: bool):
         print(f"No out-of-date pipx packages {sleep}")
         return EXIT_CODE_OK
 
-    # TODO: do we need this print?
-    # print("\nOutdated packages:")
-
     all_venv_problems = list_packages(
         dirs_version_outdated, include_injected, extra_info
     )
