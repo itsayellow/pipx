@@ -1,8 +1,9 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Collection, Dict, List, Optional
+from typing import Any, Callable, Collection, Dict, List, Optional, Tuple
 
 from packaging.version import Version
 
@@ -109,12 +110,45 @@ def list_packages(
     return all_venv_problems
 
 
+def check_outdated(
+    venv_dir: Path, pip_config_index_url: str, pip_config_extra_index_urls: List[str]
+) -> Tuple[Optional[bool], Dict[str, Dict[str, Optional[str]]]]:
+    """Needs to be thread-safe"""
+
+    venv_extra_info: Dict[str, Dict[str, Optional[str]]] = {}
+
+    venv = Venv(venv_dir)
+
+    current_version = Version(
+        venv.package_metadata[venv.main_package_name].package_version
+    )
+
+    start_time = time.time()
+    latest_version = get_latest_version(
+        venv.package_metadata[venv.main_package_name],
+        pip_config_index_url,
+        pip_config_extra_index_urls,
+    )
+    logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
+
+    venv_extra_info[venv.main_package_name] = {}
+    venv_extra_info[venv.main_package_name]["latest_version"] = (
+        str(latest_version) if latest_version is not None else None
+    )
+    if latest_version is None:
+        is_outdated = None
+    else:
+        is_outdated = latest_version > current_version
+
+    return is_outdated, venv_extra_info
+
+
 def list_outdated_packages(dirs: Collection[Path], include_injected: bool):
     time_start = time.time()
     (pip_config_index_url, pip_config_extra_index_urls) = indexes_from_pip_config(
         DEFAULT_PYTHON
     )
-    logger.info(f"get_pip_config elapsed: {time.time()-time_start}")
+    logger.info(f"get_pip_config: {time.time()-time_start:.3f}s")
     logger.info(f"pip_config_index_url = {pip_config_index_url}")
     logger.info(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
 
@@ -124,31 +158,36 @@ def list_outdated_packages(dirs: Collection[Path], include_injected: bool):
     dirs_version_unknown = []
     dirs_version_outdated = []
     extra_info: Dict[str, Any] = {}
-    for venv_dir in dirs:
-        venv = Venv(venv_dir)
+    time_start = time.time()
 
-        extra_info[str(venv_dir)] = {}
+    with ThreadPoolExecutor() as executor:
+        for venv_dir, (is_outdated, venv_extra_info) in zip(
+            dirs,
+            executor.map(
+                partial(
+                    check_outdated,
+                    pip_config_index_url=pip_config_index_url,
+                    pip_config_extra_index_urls=pip_config_extra_index_urls,
+                ),
+                dirs,
+            ),
+        ):
+            if is_outdated is None:
+                dirs_version_unknown.append(venv_dir)
+            elif is_outdated:
+                dirs_version_outdated.append(venv_dir)
+                extra_info[str(venv_dir)] = venv_extra_info
 
-        current_version = Version(
-            venv.package_metadata[venv.main_package_name].package_version
-        )
-
-        start_time = time.time()
-        latest_version = get_latest_version(
-            venv.package_metadata[venv.main_package_name],
-            pip_config_index_url,
-            pip_config_extra_index_urls,
-        )
-        logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
-
-        extra_info[str(venv_dir)][venv.main_package_name] = {}
-        extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
-            str(latest_version) if latest_version is not None else None
-        )
-        if latest_version is None:
-            dirs_version_unknown.append(venv_dir)
-        elif latest_version > current_version:
-            dirs_version_outdated.append(venv_dir)
+    # for venv_dir in dirs:
+    #     (is_outdated, venv_extra_info) = check_outdated(
+    #         venv_dir, pip_config_index_url, pip_config_extra_index_urls
+    #     )
+    #     if is_outdated is None:
+    #         dirs_version_unknown.append(venv_dir)
+    #     elif is_outdated:
+    #         dirs_version_outdated.append(venv_dir)
+    #         extra_info[str(venv_dir)] = venv_extra_info
+    logger.info(f"Check all dirs for outdated: {time.time()-time_start:.3f}s")
 
     if not dirs_version_outdated:
         print(f"No out-of-date pipx packages {sleep}")
