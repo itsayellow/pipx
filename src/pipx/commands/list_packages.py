@@ -1,10 +1,9 @@
-import json
+import argparse
 import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Collection, Dict, List, Optional, Tuple
 
-from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 from pypi_simple import PyPISimple  # type: ignore
 from requests.exceptions import ReadTimeout
@@ -16,7 +15,7 @@ from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojies import sleep
 from pipx.interpreter import DEFAULT_PYTHON
 from pipx.package_specifier import _parse_specifier
-from pipx.util import PipxError, get_pip_config, run_subprocess
+from pipx.util import PipxError, get_pip_config
 from pipx.venv import Venv, VenvContainer
 
 Pool: Optional[Callable]
@@ -84,14 +83,21 @@ def get_indexes(
     pip_config_index_url: str,
     pip_config_extra_index_urls: List[str],
 ) -> List[str]:
-    index_url = DEFAULT_PYPI_SIMPLE_URL
-    extra_index_urls: List[str] = []
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--index-url", "-i", action="store")
+    parser.add_argument("--extra-index-url", action="store")
+    parsed_pip_args, _ = parser.parse_known_args(pip_args)
+    print(f"parsed_pip_args = {parsed_pip_args}")
 
-    # TODO: parse both option=<arg> and option, arg
-    if "--index-url" in pip_args:
-        index_url = pip_args[pip_args.index("--index_url") + 1]
+    if parsed_pip_args.index_url is not None:
+        index_url = parsed_pip_args.index_url
     else:
         index_url = pip_config_index_url
+
+    if parsed_pip_args.extra_index_url is not None:
+        extra_index_urls = parsed_pip_args.extra_index_url.split()
+    else:
+        extra_index_urls = []
 
     return [index_url] + extra_index_urls
 
@@ -122,6 +128,7 @@ def get_latest_version(
     index_urls = get_indexes(
         package_metadata.pip_args, pip_config_index_url, pip_config_extra_index_urls
     )
+    print(f"index_urls = {index_urls}")
 
     for index_url in index_urls:
         latest_version = latest_version_from_index(package_metadata.package, index_url)
@@ -129,42 +136,6 @@ def get_latest_version(
             break
 
     return latest_version
-
-
-# Typically takes ~2.00s
-def get_latest_version2(package_metadata, python_path: Path) -> Optional[Version]:
-    if package_metadata.package_or_url is None:
-        # This should never happen, but package_or_url is type
-        #   Optional[str] so mypy thinks it could be None
-        raise PipxError("Internal Error with pipx metadata.")
-
-    package_name = package_metadata.package
-
-    parsed_specifier = _parse_specifier(package_metadata.package_or_url)
-    if (
-        parsed_specifier.valid_url
-        or parsed_specifier.valid_local_path
-        or (
-            parsed_specifier.valid_pep508 is not None
-            and parsed_specifier.valid_pep508.url is not None
-        )
-    ):
-        return None
-
-    pip_list_subprocess = run_subprocess(
-        [python_path, "-m", "pip", "list", "--outdated", "--format", "json"]
-    )
-
-    pip_list = json.loads(pip_list_subprocess.stdout)
-    for package_info in pip_list:
-        if canonicalize_name(package_info["name"]) == package_name:
-            try:
-                latest_version = Version(package_info["latest_version"])
-            except InvalidVersion:
-                return None
-            return latest_version
-
-    return None
 
 
 def list_packages(
