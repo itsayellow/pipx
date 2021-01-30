@@ -70,10 +70,11 @@ def get_latest_version(
 
 def list_packages(
     dirs: Collection[Path],
-    all_venv_problems: VenvProblems,
     include_injected: bool,
     extra_info: Optional[Dict[str, Any]] = None,
 ) -> VenvProblems:
+    all_venv_problems = VenvProblems()
+
     if Pool:
         p = Pool()
         try:
@@ -105,6 +106,67 @@ def list_packages(
     return all_venv_problems
 
 
+def list_outdated_packages(dirs: Collection[Path], include_injected: bool):
+    time_start = time.time()
+    (pip_config_index_url, pip_config_extra_index_urls) = indexes_from_pip_config(
+        DEFAULT_PYTHON
+    )
+    logger.info(f"get_pip_config elapsed: {time.time()-time_start}")
+    logger.info(f"pip_config_index_url = {pip_config_index_url}")
+    logger.info(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
+
+    if include_injected:
+        print("TODO: need to implement --include-injected with --outdated")
+
+    dirs_version_unknown = []
+    dirs_version_outdated = []
+    extra_info: Dict[str, Any] = {}
+    for venv_dir in dirs:
+        venv = Venv(venv_dir)
+
+        extra_info[str(venv_dir)] = {}
+
+        current_version = Version(
+            venv.package_metadata[venv.main_package_name].package_version
+        )
+
+        start_time = time.time()
+        latest_version = get_latest_version(
+            venv.package_metadata[venv.main_package_name],
+            pip_config_index_url,
+            pip_config_extra_index_urls,
+        )
+        logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
+
+        extra_info[str(venv_dir)][venv.main_package_name] = {}
+        extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
+            str(latest_version) if latest_version is not None else None
+        )
+        if latest_version is None:
+            dirs_version_unknown.append(venv_dir)
+        elif latest_version > current_version:
+            dirs_version_outdated.append(venv_dir)
+
+    # pip currently only checks indexes, and can't find URL-based
+    #   packages there, effectively ignoring them for "outdated" purposes.
+    # To actually verify version of URL-based packages, we'd probably
+    #   have to install them to a temp directory to verify their version
+    #   which would take too long.
+
+    if not dirs_version_outdated:
+        print(f"No out-of-date pipx packages {sleep}")
+        return EXIT_CODE_OK
+
+    # TODO: do we need this print?
+    # print("\nOutdated packages:")
+
+    all_venv_problems = list_packages(
+        dirs_version_outdated, include_injected, extra_info
+    )
+
+    return all_venv_problems
+
+
 def list_command(
     venv_container: VenvContainer, include_injected: bool, only_outdated: bool
 ) -> ExitCode:
@@ -119,65 +181,11 @@ def list_command(
     print(f"apps are exposed on your $PATH at {bold(str(constants.LOCAL_BIN_DIR))}")
 
     venv_container.verify_shared_libs()
-    all_venv_problems = VenvProblems()
 
     if only_outdated:
-        time_start = time.time()
-        (pip_config_index_url, pip_config_extra_index_urls) = indexes_from_pip_config(
-            DEFAULT_PYTHON
-        )
-        logger.info(f"get_pip_config elapsed: {time.time()-time_start}")
-        logger.info(f"pip_config_index_url = {pip_config_index_url}")
-        logger.info(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
-        # TODO: check injected packages also if include_injected
-        dirs_version_unknown = []
-        dirs_version_outdated = []
-        extra_info: Dict[str, Any] = {}
-        for venv_dir in dirs:
-            venv = Venv(venv_dir)
-
-            extra_info[str(venv_dir)] = {}
-
-            current_version = Version(
-                venv.package_metadata[venv.main_package_name].package_version
-            )
-
-            start_time = time.time()
-            latest_version = get_latest_version(
-                venv.package_metadata[venv.main_package_name],
-                pip_config_index_url,
-                pip_config_extra_index_urls,
-            )
-            logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
-
-            extra_info[str(venv_dir)][venv.main_package_name] = {}
-            extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
-                str(latest_version) if latest_version is not None else None
-            )
-            if latest_version is None:
-                dirs_version_unknown.append(venv_dir)
-            elif latest_version > current_version:
-                dirs_version_outdated.append(venv_dir)
-
-        # NOTE: pip currently only checks indexes, and can't find URL-based
-        #   packages there, effectively ignoring them for "outdated" purposes.
-        # To actually verify version of URL-based packages, we'd probably
-        #   have to install them to a temp directory to verify their version
-        #   which would take too long.
-
-        print("")
-
-        if not dirs_version_outdated:
-            print(f"No out-of-date pipx packages {sleep}")
-            return EXIT_CODE_OK
-
-        print("Outdated packages:")
-        all_venv_problems = list_packages(
-            dirs_version_outdated, all_venv_problems, include_injected, extra_info
-        )
-
+        all_venv_problems = list_outdated_packages(dirs, include_injected)
     else:
-        all_venv_problems = list_packages(dirs, all_venv_problems, include_injected)
+        all_venv_problems = list_packages(dirs, include_injected)
 
     if all_venv_problems.bad_venv_name:
         print(
