@@ -2,7 +2,7 @@ import json
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Collection, Dict, Optional
+from typing import Any, Callable, Collection, Dict, List, Optional, Tuple
 
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
@@ -26,10 +26,12 @@ try:
 except ImportError:
     Pool = None
 
+DEFAULT_PYPI_SIMPLE_URL = "https://pypi.org/simple/"
+
 
 # TODO: handle git+ URLs
 def latest_version_from_index(
-    package_name: str, index_url: str = "https://pypi.org/simple/"
+    package_name: str, index_url: str = DEFAULT_PYPI_SIMPLE_URL
 ) -> Optional[Version]:
     """Returns None if latest version cannot be determined."""
     package_latest_version: Optional[Version]
@@ -59,15 +61,38 @@ def latest_version_from_index(
         return None
 
 
+def indexes_from_pip_config(python: str) -> Tuple[str, List[str]]:
+    pip_config = get_pip_config(python)
+    pip_config_index_url = DEFAULT_PYPI_SIMPLE_URL
+    pip_config_extra_index_urls = []
+
+    if ":env:.index-url" in pip_config:
+        pip_config_index_url = pip_config[":env:.index-url"][0]
+    elif "global.index-url" in pip_config:
+        pip_config_index_url = pip_config["global.index-url"][0]
+
+    if ":env:.extra-index-url" in pip_config:
+        pip_config_extra_index_urls = pip_config[":env:.extra-index-url"]
+    elif "global.extra-index-url" in pip_config:
+        pip_config_extra_index_urls = pip_config["global.extra-index-url"]
+
+    return (pip_config_index_url, pip_config_extra_index_urls)
+
+
+# TODO: add logging messages
 # TODO: type package_metadata
 # Typically takes ~0.06s
 def get_latest_version(
-    package_metadata, pip_config: Dict[str, Any]
+    package_metadata, pip_config_index_url: str, pip_config_extra_index_urls: List[str]
 ) -> Optional[Version]:
+    index_url = DEFAULT_PYPI_SIMPLE_URL
+    extra_index_urls: List[str] = []
+
     if package_metadata.package_or_url is None:
         # This should never happen, but package_or_url is type
         #   Optional[str] so mypy thinks it could be None
         raise PipxError("Internal Error with pipx metadata.")
+
     parsed_specifier = _parse_specifier(package_metadata.package_or_url)
     if (
         parsed_specifier.valid_url
@@ -80,28 +105,16 @@ def get_latest_version(
         return None
 
     pip_args = package_metadata.pip_args
-
-    index_urls = []
     if "--index-url" in pip_args:
-        index_urls.append(pip_args[pip_args.index("--index_url") + 1])
-    elif ":env:.index-url" in pip_config:
-        index_urls.append(pip_config[":env:.index-url"][0])
-    elif "global.index-url" in pip_config:
-        index_urls.append(pip_config["global.index-url"][0])
+        index_url = pip_args[pip_args.index("--index_url") + 1]
+    else:
+        index_url = pip_config_index_url
 
-    # TODO: can there be more than one --extra-index-url?
-    if "--extra-index-url" in pip_args:
-        index_urls.append(pip_args[pip_args.index("--extra-index_url") + 1])
-    elif ":env:.extra-index-url" in pip_config:
-        index_urls.extend(pip_config[":env:.extra-index-url"])
-    elif "global.extra-index-url" in pip_config:
-        index_urls.extend(pip_config["global.extra-index-url"])
-
-    # TODO: trusted-host? proxy? cert? client-cert?
-
-    print(f"index_urls = {index_urls}")
     # latest_version = latest_version_from_index(package_metadata.package, index_url)
-    latest_version = latest_version_from_index(package_metadata.package)
+    for index_url in [index_url] + extra_index_urls:
+        latest_version = latest_version_from_index(package_metadata.package, index_url)
+        if latest_version is not None:
+            break
 
     return latest_version
 
@@ -197,7 +210,9 @@ def list_command(
 
     if only_outdated:
         time_start = time.time()
-        pip_config = get_pip_config(DEFAULT_PYTHON)
+        (pip_config_index_url, pip_config_extra_index_urls) = indexes_from_pip_config(
+            DEFAULT_PYTHON
+        )
         print(f"get_pip_config elapsed: {time.time()-time_start}")
         # TODO: check injected packages also if include_injected
         dirs_version_unknown = []
@@ -221,7 +236,9 @@ def list_command(
 
             start_time = time.time()
             latest_version = get_latest_version(
-                venv.package_metadata[venv.main_package_name], pip_config
+                venv.package_metadata[venv.main_package_name],
+                pip_config_index_url,
+                pip_config_extra_index_urls,
             )
             print(f"get_latest_version: {time.time()-start_time:.3f}s")
 
@@ -242,7 +259,7 @@ def list_command(
         #   have to install them to a temp directory to verify their version
         if dirs_version_unknown:
             # TODO: this may just be annoying (put it in help instead?)
-            print("\n(Ignoring git- or URL-based packages.)")
+            print("\n(Not checking git- or URL-based packages.)")
         else:
             print("\n")
 
