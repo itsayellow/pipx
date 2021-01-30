@@ -214,6 +214,8 @@ def list_command(
             DEFAULT_PYTHON
         )
         print(f"get_pip_config elapsed: {time.time()-time_start}")
+        print(f"pip_config_index_url = {pip_config_index_url}")
+        print(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
         # TODO: check injected packages also if include_injected
         dirs_version_unknown = []
         dirs_version_outdated = []

@@ -228,12 +228,12 @@ def get_pip_config(python: str) -> Dict[str, List[str]]:
     config_dict = {}
     config_list_proc = run_subprocess([python, "-m", "pip", "config", "list"])
     if config_list_proc.returncode == 0:
-        for line in config_list_proc.stdout.split():
+        for line in config_list_proc.stdout.split("\n"):
             print(f"line = {line}")
             config_re = re.search(r"([^=]+)=([^=]+)", line)
             if config_re:
                 config_value = (
-                    config_re.group(2).strip("'").replace("\\n", "\n").split()
+                    config_re.group(2).strip("'").replace(r"\\n", "\n").split()
                 )
                 config_dict[config_re.group(1)] = config_value
 
