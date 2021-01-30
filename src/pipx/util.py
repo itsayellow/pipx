@@ -237,6 +237,6 @@ def get_pip_config(python: str) -> Dict[str, List[str]]:
                 )
                 config_dict[config_re.group(1)] = config_value
 
-    # TODO: handle precedence here?
+    # TODO: handle precedence here? (env vs global vs user)
 
     return config_dict

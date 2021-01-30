@@ -79,14 +79,29 @@ def indexes_from_pip_config(python: str) -> Tuple[str, List[str]]:
     return (pip_config_index_url, pip_config_extra_index_urls)
 
 
+def get_indexes(
+    pip_args: List[str],
+    pip_config_index_url: str,
+    pip_config_extra_index_urls: List[str],
+) -> List[str]:
+    index_url = DEFAULT_PYPI_SIMPLE_URL
+    extra_index_urls: List[str] = []
+
+    # TODO: parse both option=<arg> and option, arg
+    if "--index-url" in pip_args:
+        index_url = pip_args[pip_args.index("--index_url") + 1]
+    else:
+        index_url = pip_config_index_url
+
+    return [index_url] + extra_index_urls
+
+
 # TODO: add logging messages
 # TODO: type package_metadata
 # Typically takes ~0.06s
 def get_latest_version(
     package_metadata, pip_config_index_url: str, pip_config_extra_index_urls: List[str]
 ) -> Optional[Version]:
-    index_url = DEFAULT_PYPI_SIMPLE_URL
-    extra_index_urls: List[str] = []
 
     if package_metadata.package_or_url is None:
         # This should never happen, but package_or_url is type
@@ -104,14 +119,11 @@ def get_latest_version(
     ):
         return None
 
-    pip_args = package_metadata.pip_args
-    if "--index-url" in pip_args:
-        index_url = pip_args[pip_args.index("--index_url") + 1]
-    else:
-        index_url = pip_config_index_url
+    index_urls = get_indexes(
+        package_metadata.pip_args, pip_config_index_url, pip_config_extra_index_urls
+    )
 
-    # latest_version = latest_version_from_index(package_metadata.package, index_url)
-    for index_url in [index_url] + extra_index_urls:
+    for index_url in index_urls:
         latest_version = latest_version_from_index(package_metadata.package, index_url)
         if latest_version is not None:
             break
