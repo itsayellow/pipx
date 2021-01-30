@@ -1,4 +1,5 @@
 import argparse
+import logging
 import time
 from typing import List, Optional, Tuple
 
@@ -7,6 +8,8 @@ from pypi_simple import PyPISimple  # type: ignore
 from requests.exceptions import ReadTimeout
 
 from pipx.util import get_pip_config
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PYPI_SIMPLE_URL = "https://pypi.org/simple/"
 INDEX_TIMEOUT = 15.0
@@ -39,7 +42,7 @@ def get_indexes(
     parser.add_argument("--index-url", "-i", action="store")
     parser.add_argument("--extra-index-url", action="store")
     parsed_pip_args, _ = parser.parse_known_args(pip_args)
-    print(f"parsed_pip_args = {parsed_pip_args}")
+    logger.info(f"parsed_pip_args = {parsed_pip_args}")
 
     if parsed_pip_args.index_url is not None:
         index_url = parsed_pip_args.index_url
@@ -60,14 +63,14 @@ def latest_version_from_index(
     """Returns None if latest version cannot be determined."""
     package_latest_version: Optional[Version]
 
-    print(f"PyPISimple using: {index_url}")
+    logger.info(f"PyPISimple using: {index_url}")
     time_start = time.time()
     try:
         with PyPISimple(index_url) as client:
             requests_page = client.get_project_page(package_name, timeout=INDEX_TIMEOUT)
     except ReadTimeout:
         return None
-    print(f"PyPISimple elapsed: {time.time()-time_start}")
+    logger.info(f"PyPISimple elapsed: {time.time()-time_start}")
 
     if requests_page is None:
         return None

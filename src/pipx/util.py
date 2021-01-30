@@ -230,7 +230,6 @@ def get_pip_config(python: str) -> Dict[str, List[str]]:
     config_list_proc = run_subprocess([python, "-m", "pip", "config", "list"])
     if config_list_proc.returncode == 0:
         for line in config_list_proc.stdout.split("\n"):
-            print(f"line = {line}")
             config_re = re.search(r"([^=]+)=([^=]+)", line)
             if config_re:
                 config_value = (

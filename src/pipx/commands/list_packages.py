@@ -1,3 +1,4 @@
+import logging
 import time
 from functools import partial
 from pathlib import Path
@@ -28,6 +29,8 @@ try:
 except ImportError:
     Pool = None
 
+logger = logging.getLogger(__name__)
+
 
 # TODO: add logging messages
 # Typically takes ~0.06s
@@ -55,7 +58,7 @@ def get_latest_version(
     index_urls = get_indexes(
         package_info.pip_args, pip_config_index_url, pip_config_extra_index_urls
     )
-    print(f"index_urls = {index_urls}")
+    logger.info(f"index_urls = {index_urls}")
 
     for index_url in index_urls:
         latest_version = latest_version_from_index(package_info.package, index_url)
@@ -123,9 +126,9 @@ def list_command(
         (pip_config_index_url, pip_config_extra_index_urls) = indexes_from_pip_config(
             DEFAULT_PYTHON
         )
-        print(f"get_pip_config elapsed: {time.time()-time_start}")
-        print(f"pip_config_index_url = {pip_config_index_url}")
-        print(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
+        logger.info(f"get_pip_config elapsed: {time.time()-time_start}")
+        logger.info(f"pip_config_index_url = {pip_config_index_url}")
+        logger.info(f"pip_config_extra_index_urls = {pip_config_extra_index_urls}")
         # TODO: check injected packages also if include_injected
         dirs_version_unknown = []
         dirs_version_outdated = []
@@ -145,7 +148,7 @@ def list_command(
                 pip_config_index_url,
                 pip_config_extra_index_urls,
             )
-            print(f"get_latest_version: {time.time()-start_time:.3f}s")
+            logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
 
             extra_info[str(venv_dir)][venv.main_package_name] = {}
             extra_info[str(venv_dir)][venv.main_package_name]["latest_version"] = (
@@ -164,7 +167,7 @@ def list_command(
         #   have to install them to a temp directory to verify their version
         if dirs_version_unknown:
             # TODO: this may just be annoying (put it in help instead?)
-            print("\n(Not checking git- or URL-based packages.)")
+            print("\n(Not checking versions of git- or URL-based packages.)")
         else:
             print("\n")
 
