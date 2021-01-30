@@ -79,6 +79,7 @@ def list_packages(
 ) -> VenvProblems:
     all_venv_problems = VenvProblems()
 
+    time_start = time.time()
     if Pool:
         p = Pool()
         try:
@@ -106,6 +107,7 @@ def list_packages(
         ):
             print(package_summary)
             all_venv_problems.or_(venv_problems)
+    logger.info(f"list_packages: {time.time()-time_start:.3f}s")
 
     return all_venv_problems
 
@@ -123,13 +125,13 @@ def check_outdated(
         venv.package_metadata[venv.main_package_name].package_version
     )
 
-    start_time = time.time()
+    time_start = time.time()
     latest_version = get_latest_version(
         venv.package_metadata[venv.main_package_name],
         pip_config_index_url,
         pip_config_extra_index_urls,
     )
-    logger.info(f"get_latest_version: {time.time()-start_time:.3f}s")
+    logger.info(f"get_latest_version: {time.time()-time_start:.3f}s")
 
     venv_extra_info[venv.main_package_name] = {}
     venv_extra_info[venv.main_package_name]["latest_version"] = (
