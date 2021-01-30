@@ -9,6 +9,7 @@ from requests.exceptions import ReadTimeout
 from pipx.util import get_pip_config
 
 DEFAULT_PYPI_SIMPLE_URL = "https://pypi.org/simple/"
+INDEX_TIMEOUT = 15.0
 
 
 def indexes_from_pip_config(python: str) -> Tuple[str, List[str]]:
@@ -63,7 +64,7 @@ def latest_version_from_index(
     time_start = time.time()
     try:
         with PyPISimple(index_url) as client:
-            requests_page = client.get_project_page(package_name, timeout=10.0)
+            requests_page = client.get_project_page(package_name, timeout=INDEX_TIMEOUT)
     except ReadTimeout:
         return None
     print(f"PyPISimple elapsed: {time.time()-time_start}")
