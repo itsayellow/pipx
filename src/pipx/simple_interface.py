@@ -53,7 +53,6 @@ def get_indexes(
     return [index_url] + extra_index_urls
 
 
-# TODO: handle git+ URLs
 def latest_version_from_index(
     package_name: str, index_url: str = DEFAULT_PYPI_SIMPLE_URL
 ) -> Optional[Version]:

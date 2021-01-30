@@ -12,6 +12,7 @@ from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojies import sleep
 from pipx.interpreter import DEFAULT_PYTHON
 from pipx.package_specifier import _parse_specifier
+from pipx.pipx_metadata import PackageInfo
 from pipx.simple_interface import (
     get_indexes,
     indexes_from_pip_config,
@@ -29,18 +30,19 @@ except ImportError:
 
 
 # TODO: add logging messages
-# TODO: type package_metadata
 # Typically takes ~0.06s
 def get_latest_version(
-    package_metadata, pip_config_index_url: str, pip_config_extra_index_urls: List[str]
+    package_info: PackageInfo,
+    pip_config_index_url: str,
+    pip_config_extra_index_urls: List[str],
 ) -> Optional[Version]:
 
-    if package_metadata.package_or_url is None:
+    if package_info.package_or_url is None:
         # This should never happen, but package_or_url is type
         #   Optional[str] so mypy thinks it could be None
         raise PipxError("Internal Error with pipx metadata.")
 
-    parsed_specifier = _parse_specifier(package_metadata.package_or_url)
+    parsed_specifier = _parse_specifier(package_info.package_or_url)
     if (
         parsed_specifier.valid_url
         or parsed_specifier.valid_local_path
@@ -52,12 +54,12 @@ def get_latest_version(
         return None
 
     index_urls = get_indexes(
-        package_metadata.pip_args, pip_config_index_url, pip_config_extra_index_urls
+        package_info.pip_args, pip_config_index_url, pip_config_extra_index_urls
     )
     print(f"index_urls = {index_urls}")
 
     for index_url in index_urls:
-        latest_version = latest_version_from_index(package_metadata.package, index_url)
+        latest_version = latest_version_from_index(package_info.package, index_url)
         if latest_version is not None:
             break
 
@@ -137,13 +139,6 @@ def list_command(
             current_version = Version(
                 venv.package_metadata[venv.main_package_name].package_version
             )
-
-            # print(f"venv.main_package_name = {venv.main_package_name}")
-            # start_time = time.time()
-            # latest_version = get_latest_version2(
-            #     venv.package_metadata[venv.main_package_name], venv.python_path
-            # )
-            # print(f"get_latest_version2: {time.time()-start_time:.3f}s")
 
             start_time = time.time()
             latest_version = get_latest_version(
