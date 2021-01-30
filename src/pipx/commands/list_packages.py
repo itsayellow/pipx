@@ -159,17 +159,13 @@ def list_command(
             elif latest_version > current_version:
                 dirs_version_outdated.append(venv_dir)
 
-        # NOTE: pip currently only checks pypi, and can't find packages
-        #       installed from URL, effectively ignoring them for "outdated"
-        #       purposes.  By listing unknown latest versions we are being more
-        #       conservative.  pip doesn't list these at all
+        # NOTE: pip currently only checks indexes, and can't find URL-based
+        #   packages there, effectively ignoring them for "outdated" purposes.
         # To actually verify version of URL-based packages, we'd probably
         #   have to install them to a temp directory to verify their version
-        if dirs_version_unknown:
-            # TODO: this may just be annoying (put it in help instead?)
-            print("\n(Not checking versions of git- or URL-based packages.)")
-        else:
-            print("\n")
+        #   which would take too long.
+
+        print("")
 
         if not dirs_version_outdated:
             print(f"No out-of-date pipx packages {sleep}")

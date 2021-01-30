@@ -491,7 +491,7 @@ def _add_list(subparsers) -> None:
         "--outdated",
         "-o",
         action="store_true",
-        help="Only list outdated main packages",
+        help="Only list outdated packages.  Ignores VCS- or URL-based packages",
     )
     p.add_argument("--verbose", action="store_true")
 
